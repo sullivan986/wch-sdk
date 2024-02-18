@@ -58,17 +58,22 @@ elseif(CHIP_NAME STREQUAL "ch58x")
             ${WCH_SDK_PATH}/hal/CH58X/lib/LIBWCHLWNS.a
         )
 
-
-        set(HEX_FILE ${PROJECT_BINARY_DIR}/${param}.hex)
-        set(BIN_FILE ${PROJECT_BINARY_DIR}/${param}.bin)
-        add_custom_command(TARGET ${param} POST_BUILD
-            COMMAND ${CMAKE_OBJCOPY} -Oihex $<TARGET_FILE:${param}> ${HEX_FILE}
-            COMMAND ${CMAKE_OBJCOPY} -Obinary $<TARGET_FILE:${param}> ${BIN_FILE}
-        )
+        # set(HEX_FILE ${PROJECT_BINARY_DIR}/app.hex)
+        # set(BIN_FILE ${PROJECT_BINARY_DIR}/app.bin)
+        # add_custom_command(TARGET ${param} POST_BUILD
+        #     COMMAND ${CMAKE_OBJCOPY} -Oihex $<TARGET_FILE:${param}> ${HEX_FILE}
+        #     COMMAND ${CMAKE_OBJCOPY} -Obinary $<TARGET_FILE:${param}> ${BIN_FILE}
+        # )
+        # add_custom_command(
+        #         TARGET ${param} POST_BUILD
+        #         COMMAND ${CMAKE_OBJCOPY} -Oihex $<TARGET_FILE:${param}> ${HEX_FILE}
+        #         COMMAND ${CMAKE_OBJCOPY} -Obinary $<TARGET_FILE:${param}> ${BIN_FILE}
+        # )
+        set(HEX_FILE ${PROJECT_BINARY_DIR}/app.hex)
         add_custom_command(
                 TARGET ${param} POST_BUILD
                 COMMAND ${CMAKE_OBJCOPY} -Oihex $<TARGET_FILE:${param}> ${HEX_FILE}
-                COMMAND ${CMAKE_OBJCOPY} -Obinary $<TARGET_FILE:${param}> ${BIN_FILE}
+                #COMMAND ${CMAKE_OBJCOPY} -Obinary $<TARGET_FILE:${param}> ${BIN_FILE}
         )
     endfunction()
 endif()
