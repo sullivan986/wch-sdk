@@ -15,10 +15,25 @@ else()
     set(SIZE ${TOOLPATH}/riscv-none-elf-size)
 endif()
 
+
+# chip 
 if(NOT CHIP_NAME)
     message(FATAL_ERROR "please set CHIP_NAME for ch32")
 elseif(CHIP_NAME STREQUAL "ch32v307")
-    add_compile_options(-march=rv32imacxw -mabi=ilp32 -msmall-data-limit=8 -msave-restore -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -fno-common -Wunused -Wuninitialized)
+    add_compile_options(
+        -march=rv32imafcxw
+        -mabi=ilp32
+        -msmall-data-limit=8
+        -msave-restore
+        -fmessage-length=0
+        -fsigned-char
+        -ffunction-sections
+        -fdata-sections
+        -fsingle-precision-constant
+        -fno-common
+        -Wunused
+        -Wuninitialized
+    )
     include_directories(${WCH_SDK_PATH}/hal/CH32V307/include)
     aux_source_directory(${WCH_SDK_PATH}/hal/CH32V307/src FILE_SRC)
     set(LINKER_SCRIPT  ${WCH_SDK_PATH}/hal/CH32V307/Link.ld)
@@ -28,13 +43,14 @@ elseif(CHIP_NAME STREQUAL "ch32v307")
                 -Wl,--print-memory-usage
                 # -Wl,-Map,${PROJECT_NAME}.map 
                 --specs=nano.specs 
-                --specs=nosys.specs)
+                --specs=nosys.specs
+                -flto)
     add_link_options(-T ${LINKER_SCRIPT})
     function(config_app param)
         # current app source file
         add_executable(${param})
         aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src APP_SRC)
-        target_sources(${param} PRIVATE 
+        target_sources(${param} PRIVATE
             ${FILE_SRC}
             ${WCH_SDK_PATH}/hal/CH32V307/startup_ch32v30x_D8C.S
             ${APP_SRC}
