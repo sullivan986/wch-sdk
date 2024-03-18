@@ -1,7 +1,7 @@
 set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_SYSTEM_VERSION 1)
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
-
+ 
 # toolchains setting
 if(NOT TOOLPATH)
     message(FATAL_ERROR "please set TOOLPATH for wch gcc")
@@ -22,15 +22,14 @@ if(NOT CHIP_NAME)
 elseif(CHIP_NAME STREQUAL "ch32v307")
     add_compile_options(
         -march=rv32imafcxw
-        -mabi=ilp32
+        -mabi=ilp32f
         -msmall-data-limit=8
-        -msave-restore
+        -mno-save-restore
         -fmessage-length=0
         -fsigned-char
         -ffunction-sections
         -fdata-sections
         -fsingle-precision-constant
-        -fno-common
         -Wunused
         -Wuninitialized
     )
@@ -44,7 +43,7 @@ elseif(CHIP_NAME STREQUAL "ch32v307")
                 # -Wl,-Map,${PROJECT_NAME}.map 
                 --specs=nano.specs 
                 --specs=nosys.specs
-                -flto)
+                -march=rv32imafcxw -mabi=ilp32f -flto)
     add_link_options(-T ${LINKER_SCRIPT})
     function(config_app param)
         # current app source file
@@ -62,10 +61,11 @@ elseif(CHIP_NAME STREQUAL "ch32v307")
             -Wl,-Map,${param}.map 
         )
         set(HEX_FILE ${PROJECT_BINARY_DIR}/app.hex)
+        set(BIN_FILE ${PROJECT_BINARY_DIR}/app.bin)
         add_custom_command(
                 TARGET ${param} POST_BUILD
                 COMMAND ${CMAKE_OBJCOPY} -Oihex $<TARGET_FILE:${param}> ${HEX_FILE}
-                #COMMAND ${CMAKE_OBJCOPY} -Obinary $<TARGET_FILE:${param}> ${BIN_FILE}
+                COMMAND ${CMAKE_OBJCOPY} -Obinary $<TARGET_FILE:${param}> ${BIN_FILE}
         )
     endfunction()
     
