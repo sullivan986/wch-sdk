@@ -16,6 +16,23 @@ else()
 endif()
 
 
+# rtos
+add_library(freertos INTERFACE)
+aux_source_directory(${WCH_SDK_PATH}/libs/FreeRTOS freertos_source)
+target_include_directories(freertos INTERFACE
+    ${WCH_SDK_PATH}/libs/FreeRTOS/include
+    ${WCH_SDK_PATH}/libs/FreeRTOS/portable/GCC/RISC-V
+    ${WCH_SDK_PATH}/libs/FreeRTOS/portable/GCC/RISC-V/chip_specific_extensions/RV32I_PFIC_no_extensions
+)
+target_sources(freertos PUBLIC
+    ${freertos_source}
+    #portable/Common/mpu_wrappers.c
+    ${WCH_SDK_PATH}/libs/FreeRTOS/portable/MemMang/heap_4.c 
+    ${WCH_SDK_PATH}/libs/FreeRTOS/portable/GCC/RISC-V/port.c
+    ${WCH_SDK_PATH}/libs/FreeRTOS/portable/GCC/RISC-V/portASM.S
+)
+
+
 # chip 
 if(NOT CHIP_NAME)
     message(FATAL_ERROR "please set CHIP_NAME for ch32")
@@ -66,6 +83,9 @@ elseif(CHIP_NAME STREQUAL "ch32v307")
                 TARGET ${param} POST_BUILD
                 COMMAND ${CMAKE_OBJCOPY} -Oihex $<TARGET_FILE:${param}> ${HEX_FILE}
                 COMMAND ${CMAKE_OBJCOPY} -Obinary $<TARGET_FILE:${param}> ${BIN_FILE}
+        )
+        target_link_libraries(${param}
+            freertos
         )
     endfunction()
     

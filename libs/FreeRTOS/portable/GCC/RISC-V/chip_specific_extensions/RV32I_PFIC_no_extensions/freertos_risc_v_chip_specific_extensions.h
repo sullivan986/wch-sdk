@@ -57,7 +57,7 @@
 #define portasmHAS_SIFIVE_CLINT 0
 #define portasmHAS_MTIME 0
 /* if you want to use FPU, please define ARCH_FPU and enable float point and ABI of gcc */
-#define ARCH_FPU 0
+#define ARCH_FPU 1
 
 
 #if ARCH_FPU
