@@ -1,0 +1,5 @@
+CompileFlags:
+    Remove: [-march=rv32imafcxw]
+
+Diagnostics:
+  Suppress: []

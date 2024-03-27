@@ -15,7 +15,6 @@ else()
     set(SIZE ${TOOLPATH}/riscv-none-elf-size)
 endif()
 
-
 # rtos
 add_library(freertos INTERFACE)
 aux_source_directory(${WCH_SDK_PATH}/libs/FreeRTOS freertos_source)
@@ -26,12 +25,15 @@ target_include_directories(freertos INTERFACE
 )
 target_sources(freertos PUBLIC
     ${freertos_source}
-    #portable/Common/mpu_wrappers.c
+    #${WCH_SDK_PATH}/libs/FreeRTOS/portable/Common/mpu_wrappers.c
     ${WCH_SDK_PATH}/libs/FreeRTOS/portable/MemMang/heap_4.c 
     ${WCH_SDK_PATH}/libs/FreeRTOS/portable/GCC/RISC-V/port.c
     ${WCH_SDK_PATH}/libs/FreeRTOS/portable/GCC/RISC-V/portASM.S
 )
 
+add_library(wch_log INTERFACE
+    ${WCH_SDK_PATH}/libs/log/wch_log.hpp
+)
 
 # chip 
 if(NOT CHIP_NAME)
@@ -84,8 +86,9 @@ elseif(CHIP_NAME STREQUAL "ch32v307")
                 COMMAND ${CMAKE_OBJCOPY} -Oihex $<TARGET_FILE:${param}> ${HEX_FILE}
                 COMMAND ${CMAKE_OBJCOPY} -Obinary $<TARGET_FILE:${param}> ${BIN_FILE}
         )
-        target_link_libraries(${param}
+        target_link_libraries(${param} PUBLIC
             freertos
+            wch_log
         )
     endfunction()
     

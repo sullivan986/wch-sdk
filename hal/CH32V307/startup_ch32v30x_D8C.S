@@ -2,7 +2,7 @@
 * File Name          : startup_ch32v30x_D8C.s
 * Author             : WCH
 * Version            : V1.0.1
-* Date               : 2024/03/06
+* Date               : 2023/12/30
 * Description        : CH32V307x-CH32V305x vector table for eclipse toolchain.
 *********************************************************************************
 * Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
@@ -104,7 +104,7 @@ _vector_base:
     .word   CAN2_RX0_IRQHandler        /* CAN2 RX0 */
     .word   CAN2_RX1_IRQHandler        /* CAN2 RX1 */
     .word   CAN2_SCE_IRQHandler        /* CAN2 SCE */
-    .word   USBFS_IRQHandler           /* USBFS */
+    .word   USBFS_IRQHandler          /* USBFS */
     .word   USBHSWakeup_IRQHandler     /* USBHS Wakeup */
     .word   USBHS_IRQHandler           /* USBHS */
     .word   DVP_IRQHandler             /* DVP */
@@ -201,7 +201,7 @@ _vector_base:
     .weak   CAN2_RX0_IRQHandler        /* CAN2 RX0 */
     .weak   CAN2_RX1_IRQHandler        /* CAN2 RX1 */
     .weak   CAN2_SCE_IRQHandler        /* CAN2 SCE */
-    .weak   USBFS_IRQHandler           /* USBFS */
+    .weak   USBFS_IRQHandler          /* USBFS */
     .weak   USBHSWakeup_IRQHandler     /* USBHS Wakeup */
     .weak   USBHS_IRQHandler           /* USBHS */
     .weak   DVP_IRQHandler             /* DVP */
@@ -356,10 +356,10 @@ handle_reset:
     li t0, 0x1f
     csrw 0xbc0, t0
 /* Enable interrupt nesting and hardware stack */
-	li t0, 0x0b
+	li t0, 0x1f
 	csrw 0x804, t0
 /* Enable floating point and global interrupt, configure privileged mode */
-   	li t0, 0x6088           
+   	li t0, 0x7800           
    	csrw mstatus, t0
 /* Configure the interrupt vector table recognition mode and entry address mode */
  	la t0, _vector_base
