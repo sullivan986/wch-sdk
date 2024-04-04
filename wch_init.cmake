@@ -31,10 +31,15 @@ target_sources(freertos PUBLIC
     ${WCH_SDK_PATH}/libs/FreeRTOS/portable/GCC/RISC-V/portASM.S
 )
 
-add_library(wch_log INTERFACE
-    ${WCH_SDK_PATH}/libs/log/wch_log.hpp
+add_library(utensil INTERFACE)
+target_include_directories(utensil INTERFACE
+    ${WCH_SDK_PATH}/libs/utensil
 )
 
+add_library(Cherry_USBD INTERFACE)
+target_include_directories(Cherry_USBD INTERFACE
+    ${WCH_SDK_PATH}/libs/CherryUSB/common
+)
 # chip 
 if(NOT CHIP_NAME)
     message(FATAL_ERROR "please set CHIP_NAME for ch32")
@@ -88,7 +93,7 @@ elseif(CHIP_NAME STREQUAL "ch32v307")
         )
         target_link_libraries(${param} PUBLIC
             freertos
-            wch_log
+            utensil
         )
     endfunction()
     
