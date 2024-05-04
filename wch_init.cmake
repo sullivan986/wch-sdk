@@ -5,7 +5,7 @@ set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 # toolchains setting
 if(NOT TOOLPATH)
     message(FATAL_ERROR "please set TOOLPATH for wch gcc")
-else()
+else() 
     set(CMAKE_C_COMPILER ${TOOLPATH}/riscv-none-elf-gcc)
     set(CMAKE_CXX_COMPILER ${TOOLPATH}/riscv-none-elf-g++)
     set(CMAKE_ASM_COMPILER ${TOOLPATH}/riscv-none-elf-gcc)
@@ -17,6 +17,13 @@ endif()
 
 # rtos
 add_library(freertos INTERFACE)
+# utensil
+add_library(utensil INTERFACE)
+# cherry USB
+add_library(Cherry_USB INTERFACE)
+# wasm
+add_library(wasm_runtime INTERFACE)
+
 aux_source_directory(${WCH_SDK_PATH}/libs/FreeRTOS freertos_source)
 target_include_directories(freertos INTERFACE
     ${WCH_SDK_PATH}/libs/FreeRTOS/include
@@ -31,15 +38,23 @@ target_sources(freertos PUBLIC
     ${WCH_SDK_PATH}/libs/FreeRTOS/portable/GCC/RISC-V/portASM.S
 )
 
-add_library(utensil INTERFACE)
 target_include_directories(utensil INTERFACE
     ${WCH_SDK_PATH}/libs/utensil
 )
-
-add_library(Cherry_USBD INTERFACE)
-target_include_directories(Cherry_USBD INTERFACE
-    ${WCH_SDK_PATH}/libs/CherryUSB/common
+target_link_libraries(utensil INTERFACE
+    Cherry_USB
 )
+
+# wasm 
+target_include_directories(wasm_runtime INTERFACE
+)
+#aux_source_directory()
+target_sources(wasm_runtime INTERFACE
+    ${WCH_SDK_PATH}/libs/wasm-micro-runtime/core/iwasm/common/arch/invokeNative_riscv.S
+)
+
+# wasm
+
 # chip 
 if(NOT CHIP_NAME)
     message(FATAL_ERROR "please set CHIP_NAME for ch32")

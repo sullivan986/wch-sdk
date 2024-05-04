@@ -11,6 +11,7 @@
 * microcontroller manufactured by Nanjing Qinheng Microelectronics.
 *******************************************************************************/
 #include "debug.h"
+#include <stdio.h>
 
 static uint8_t  p_us = 0;
 static uint16_t p_ms = 0;
@@ -249,5 +250,11 @@ __attribute__((used)) void *_sbrk(ptrdiff_t incr)
     return curbrk - incr;
 }
 
-
-
+void _fini()
+{
+    printf("\r\n[system] dynamic library fini\r\n");   
+}
+void _init()
+{
+    printf("\r\n[system] dynamic library init\r\n");    
+}
