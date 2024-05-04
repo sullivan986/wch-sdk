@@ -23,6 +23,8 @@ add_library(utensil INTERFACE)
 add_library(Cherry_USB INTERFACE)
 # wasm
 add_library(wasm_runtime INTERFACE)
+# tflite
+add_library(tflite INTERFACE)
 
 # freertos for ch32v307
 aux_source_directory(${WCH_SDK_PATH}/libs/FreeRTOS freertos_source)
@@ -56,6 +58,7 @@ target_sources(wasm_runtime INTERFACE
 )
 
 # tflite
+tar
 
 # chip 
 if(NOT CHIP_NAME)
