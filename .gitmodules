@@ -1,0 +1,3 @@
+[submodule "libs/tflite-micro"]
+	path = libs/tflite-micro
+	url = https://github.com/tensorflow/tflite-micro

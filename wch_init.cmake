@@ -24,6 +24,7 @@ add_library(Cherry_USB INTERFACE)
 # wasm
 add_library(wasm_runtime INTERFACE)
 
+# freertos for ch32v307
 aux_source_directory(${WCH_SDK_PATH}/libs/FreeRTOS freertos_source)
 target_include_directories(freertos INTERFACE
     ${WCH_SDK_PATH}/libs/FreeRTOS/include
@@ -38,6 +39,7 @@ target_sources(freertos PUBLIC
     ${WCH_SDK_PATH}/libs/FreeRTOS/portable/GCC/RISC-V/portASM.S
 )
 
+# utensil tools
 target_include_directories(utensil INTERFACE
     ${WCH_SDK_PATH}/libs/utensil
 )
@@ -45,7 +47,7 @@ target_link_libraries(utensil INTERFACE
     Cherry_USB
 )
 
-# wasm 
+# wasm runtime
 target_include_directories(wasm_runtime INTERFACE
 )
 #aux_source_directory()
@@ -53,7 +55,7 @@ target_sources(wasm_runtime INTERFACE
     ${WCH_SDK_PATH}/libs/wasm-micro-runtime/core/iwasm/common/arch/invokeNative_riscv.S
 )
 
-# wasm
+# tflite
 
 # chip 
 if(NOT CHIP_NAME)
