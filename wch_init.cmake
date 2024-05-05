@@ -58,7 +58,61 @@ target_sources(wasm_runtime INTERFACE
 )
 
 # tflite
-tar
+target_include_directories(tflite INTERFACE
+    ${WCH_SDK_PATH}/libs/esp-tflite-micro/
+    ${WCH_SDK_PATH}/libs/esp-tflite-micro/third_party/gemmlowp
+    ${WCH_SDK_PATH}/libs/esp-tflite-micro/third_party/flatbuffers/include
+    ${WCH_SDK_PATH}/libs/esp-tflite-micro/third_party/ruy
+    ${WCH_SDK_PATH}/libs/esp-tflite-micro/third_party/kissfft
+    ${WCH_SDK_PATH}/libs/esp-tflite-micro/signal/micro/kernels
+    ${WCH_SDK_PATH}/libs/esp-tflite-micro/signal/src
+    ${WCH_SDK_PATH}/libs/esp-tflite-micro/signal/src/kiss_fft_wrappers
+)
+file(GLOB_RECURSE tflite_sources 
+"${WCH_SDK_PATH}/libs/esp-tflite-micro/tensorflow/*.c" 
+"${WCH_SDK_PATH}/libs/esp-tflite-micro/tensorflow/*.cc"
+"${WCH_SDK_PATH}/libs/esp-tflite-micro/tensorflow/*.cpp") 
+# set(tflite_dir "${CMAKE_CURRENT_SOURCE_DIR}/tensorflow/lite")
+# set(signal_dir "${CMAKE_CURRENT_SOURCE_DIR}/signal")
+# set(tfmicro_dir "${tflite_dir}/micro")
+# set(tfmicro_frontend_dir "${tflite_dir}/experimental/microfrontend/lib")
+# set(tfmicro_kernels_dir "${tfmicro_dir}/kernels")
+# file(GLOB srcs_micro
+#           "${tfmicro_dir}/*.cc"
+#           "${tfmicro_dir}/*.c")
+# file(GLOB src_micro_frontend
+#           "${tfmicro_frontend_dir}/*.c"
+#           "${tfmicro_frontend_dir}/*.cc")
+# file(GLOB srcs_tflite_bridge
+#           "${tfmicro_dir}/tflite_bridge/*.c"
+#           "${tfmicro_dir}/tflite_bridge/*.cc")
+# file(GLOB srcs_kernels
+#           "${tfmicro_kernels_dir}/*.c"
+#           "${tfmicro_kernels_dir}/*.cc")
+# file(GLOB signal_micro_kernels
+#           "${signal_dir}/micro/kernels/*.c"
+#           "${signal_dir}/micro/kernels/*.cc")
+# file(GLOB signal_src
+#           "${signal_dir}/src/*.c"
+#           "${signal_dir}/src/*.cc")
+# set(signal_srcs
+#           "${signal_micro_kernels}"
+#           "${signal_src}"
+#           "${signal_dir}/src/kiss_fft_wrappers/kiss_fft_float.cc"
+#           "${signal_dir}/src/kiss_fft_wrappers/kiss_fft_int16.cc"
+#           "${signal_dir}/src/kiss_fft_wrappers/kiss_fft_int32.cc")
+list(REMOVE_ITEM tflite_sources
+          "${WCH_SDK_PATH}/libs/esp-tflite-micro/tensorflow/lite/micro/kernels/esp_nn/add.cc"
+          "${WCH_SDK_PATH}/libs/esp-tflite-micro/tensorflow/lite/micro/kernels/esp_nn/conv.cc"
+          "${WCH_SDK_PATH}/libs/esp-tflite-micro/tensorflow/lite/micro/kernels/esp_nn/depthwise_conv.cc"
+          "${WCH_SDK_PATH}/libs/esp-tflite-micro/tensorflow/lite/micro/kernels/esp_nn/fully_connected.cc"
+          "${WCH_SDK_PATH}/libs/esp-tflite-micro/tensorflow/lite/micro/kernels/esp_nn/mul.cc"
+          "${WCH_SDK_PATH}/libs/esp-tflite-micro/tensorflow/lite/micro/kernels/esp_nn/pooling.cc"
+          "${WCH_SDK_PATH}/libs/esp-tflite-micro/tensorflow/lite/micro/kernels/esp_nn/softmax.cc")
+target_sources(tflite INTERFACE
+    ${tflite_sources}
+)
+
 
 # chip 
 if(NOT CHIP_NAME)
@@ -76,6 +130,7 @@ elseif(CHIP_NAME STREQUAL "ch32v307")
         -fsingle-precision-constant
         -Wunused
         -Wuninitialized
+        -lm
     )
     include_directories(${WCH_SDK_PATH}/hal/CH32V307/include)
     aux_source_directory(${WCH_SDK_PATH}/hal/CH32V307/src FILE_SRC)
@@ -87,6 +142,7 @@ elseif(CHIP_NAME STREQUAL "ch32v307")
                 # -Wl,-Map,${PROJECT_NAME}.map 
                 --specs=nano.specs 
                 --specs=nosys.specs
+                #-static-libstdc++
                 -march=rv32imafcxw -mabi=ilp32f -flto)
     add_link_options(-T ${LINKER_SCRIPT})
     function(config_app param)

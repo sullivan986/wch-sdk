@@ -10,3 +10,6 @@
 [submodule "libs/wasm-micro-runtime"]
 	path = libs/wasm-micro-runtime
 	url = https://github.com/bytecodealliance/wasm-micro-runtime
+[submodule "libs/esp-tflite-micro"]
+	path = libs/esp-tflite-micro
+	url = https://github.com/espressif/esp-tflite-micro

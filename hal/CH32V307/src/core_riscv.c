@@ -11,6 +11,8 @@
 *******************************************************************************/
 #include <stdint.h>
 
+__attribute__((weak)) void *__dso_handle;
+
 /* define compiler specific symbols */
 #if defined ( __CC_ARM   )
   #define __ASM            __asm                                      /*!< asm keyword for ARM Compiler          */

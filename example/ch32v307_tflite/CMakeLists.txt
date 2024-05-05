@@ -1,0 +1,51 @@
+cmake_minimum_required(VERSION 3.20)
+
+# 工具链设置
+set(TOOLPATH  /PATH/TO/GCC/BIN)
+set(WCH_SDK_PATH ../..)
+set(CHIP_NAME "ch32v307")
+
+# 项目设置
+project(ch32v307 C CXX ASM)
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_C_STANDARD 11)
+
+include(${WCH_SDK_PATH}/wch_init.cmake)
+
+config_app(ch32v307_tflite)
+
+target_compile_options(ch32v307 PRIVATE
+-DTF_LITE_STATIC_MEMORY
+-DTF_LITE_DISABLE_X86_NEON
+-DTF_LITE_USE_GLOBAL_CMATH_FUNCTIONS
+-DTF_LITE_USE_GLOBAL_MAX
+-DTF_LITE_USE_GLOBAL_MIN
+
+# -Wno-error=attributes
+# -Wno-error=shadow
+# -Wno-maybe-uninitialized
+# #-Wno-missing-field-initializers
+# -Wno-error=sign-compare
+-Wno-error=double-promotion
+# -Wno-type-limits
+# -Wno-error=stringop-overread
+
+# -O3
+# -Wstrict-aliasing -Wno-unused-parameter -Wall -Wextra -Wvla
+# -Wsign-compare -Wdouble-promotion -Wswitch -Wunused-function
+# -Wshadow -Wunused-variable -fno-unwind-tables
+
+# -fmessage-length=0 -Wno-nonnull
+
+)
+
+target_compile_options(ch32v307_tflite PRIVATE $<$<COMPILE_LANGUAGE:CXX>:
+                                      ${common_flags} -std=c++11 -fno-rtti -fno-exceptions
+                                      -fno-threadsafe-statics -Werror -Wno-return-type
+                                      -Wno-strict-aliasing -std=gnu++14 >)
+
+target_link_libraries(ch32v307_tflite PUBLIC
+    tflite
+)
+
+target_link_libraries(ch32v307_tflite PRIVATE -lm)
