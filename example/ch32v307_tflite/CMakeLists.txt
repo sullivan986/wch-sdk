@@ -14,7 +14,7 @@ include(${WCH_SDK_PATH}/wch_init.cmake)
 
 config_app(ch32v307_tflite)
 
-target_compile_options(ch32v307 PRIVATE
+target_compile_options(ch32v307_tflite PRIVATE
 -DTF_LITE_STATIC_MEMORY
 -DTF_LITE_DISABLE_X86_NEON
 -DTF_LITE_USE_GLOBAL_CMATH_FUNCTIONS
