@@ -39,13 +39,22 @@ target_compile_options(ch32v307_tflite PRIVATE
 
 )
 
-target_compile_options(ch32v307_tflite PRIVATE $<$<COMPILE_LANGUAGE:CXX>:
-                                      ${common_flags} -std=c++11 -fno-rtti -fno-exceptions
-                                      -fno-threadsafe-statics -Werror -Wno-return-type
-                                      -Wno-strict-aliasing -std=gnu++14 >)
+target_compile_options(test2 PRIVATE $<$<COMPILE_LANGUAGE:CXX>:
+                                      ${common_flags} -fno-rtti -fno-exceptions
+                                      -fno-threadsafe-statics -Werror -Wno-return-type 
+                                      -Wno-volatile  -Wno-deprecated-declarations
+                                      -Wno-strict-aliasing>)
 
 target_link_libraries(ch32v307_tflite PUBLIC
     tflite
+    printfloat
 )
 
 target_link_libraries(ch32v307_tflite PRIVATE -lm)
+
+get_target_property(MyLib_COMPILE_OPTIONS ch32v307_tflite COMPILE_OPTIONS)
+if(MyLib_COMPILE_OPTIONS)
+  string(REPLACE "-fsingle-precision-constant" "" MyLib_COMPILE_OPTIONS "${MyLib_COMPILE_OPTIONS}")
+  #string(REPLACE "-mtune=native" "" MyLib_COMPILE_OPTIONS "${MyLib_COMPILE_OPTIONS}")
+  set_target_properties(ch32v307_tflite PROPERTIES COMPILE_OPTIONS "${MyLib_COMPILE_OPTIONS}")
+endif()
