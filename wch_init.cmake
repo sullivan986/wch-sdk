@@ -160,6 +160,18 @@ elseif(CHIP_NAME STREQUAL "ch32v307")
         target_link_options(${param} PRIVATE 
             -Wl,-Map,${param}.map 
         )
+        target_compile_options(${param} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:
+                                      ${common_flags} 
+                                      -fno-rtti 
+                                      -fno-exceptions
+                                      -fno-threadsafe-statics
+                                      -Werror 
+                                      -Wno-return-type 
+                                      -Wno-unused-function
+                                      -Wno-volatile  
+                                      -Wno-deprecated-declarations 
+                                      -Wno-unused-variable
+                                      -Wno-strict-aliasing>)
         set(HEX_FILE ${PROJECT_BINARY_DIR}/app.hex)
         set(BIN_FILE ${PROJECT_BINARY_DIR}/app.bin)
         add_custom_command(
@@ -212,6 +224,7 @@ elseif(CHIP_NAME STREQUAL "ch58x")
             ${WCH_SDK_PATH}/hal/CH58X/lib/libRV3UFI.a
             ${WCH_SDK_PATH}/hal/CH58X/lib/LIBWCHLWNS.a
         )
+
 
         # set(HEX_FILE ${PROJECT_BINARY_DIR}/app.hex)
         # set(BIN_FILE ${PROJECT_BINARY_DIR}/app.bin)

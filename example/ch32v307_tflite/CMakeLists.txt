@@ -39,11 +39,6 @@ target_compile_options(ch32v307_tflite PRIVATE
 
 )
 
-target_compile_options(test2 PRIVATE $<$<COMPILE_LANGUAGE:CXX>:
-                                      ${common_flags} -fno-rtti -fno-exceptions
-                                      -fno-threadsafe-statics -Werror -Wno-return-type 
-                                      -Wno-volatile  -Wno-deprecated-declarations
-                                      -Wno-strict-aliasing>)
 
 target_link_libraries(ch32v307_tflite PUBLIC
     tflite
