@@ -6,7 +6,7 @@
  * Description
  *********************************************************************************
  * Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
- * Attention: This software (modified or not) and binary are used for
+ * Attention: This software (modified or not) and binary are used for 
  * microcontroller manufactured by Nanjing Qinheng Microelectronics.
  *******************************************************************************/
 
@@ -15,9 +15,9 @@
 /*********************************************************************
  * @fn      LClk32K_Select
  *
- * @brief   32K ‰ΩéÈ¢ëÊó∂ÈíüÊù•Ê∫ê
+ * @brief   32K µÕ∆µ ±÷”¿¥‘¥
  *
- * @param   hc  - ÈÄâÊã©32K‰ΩøÁî®ÂÜÖÈÉ®ËøòÊòØÂ§ñÈÉ®
+ * @param   hc  - —°‘Ò32K π”√ƒ⁄≤øªπ «Õ‚≤ø
  *
  * @return  none
  */
@@ -25,9 +25,10 @@ void LClk32K_Select(LClk32KTypeDef hc)
 {
     uint8_t cfg = R8_CK32K_CONFIG;
 
-    if (hc == Clk32K_LSI)
+    if(hc == Clk32K_LSI)
     {
         cfg &= ~RB_CLK_OSC32K_XT;
+        LSECFG_Current(LSE_RCur_100);
     }
     else
     {
@@ -42,7 +43,7 @@ void LClk32K_Select(LClk32KTypeDef hc)
 /*********************************************************************
  * @fn      HSECFG_Current
  *
- * @brief   HSEÊô∂‰Ωì ÂÅèÁΩÆÁîµÊµÅÈÖçÁΩÆ
+ * @brief   HSEæßÃÂ ∆´÷√µÁ¡˜≈‰÷√
  *
  * @param   c   - 75%,100%,125%,150%
  *
@@ -63,7 +64,7 @@ void HSECFG_Current(HSECurrentTypeDef c)
 /*********************************************************************
  * @fn      HSECFG_Capacitance
  *
- * @brief   HSEÊô∂‰Ωì Ë¥üËΩΩÁîµÂÆπÈÖçÁΩÆ
+ * @brief   HSEæßÃÂ ∏∫‘ÿµÁ»›≈‰÷√
  *
  * @param   c   - refer to HSECapTypeDef
  *
@@ -84,7 +85,7 @@ void HSECFG_Capacitance(HSECapTypeDef c)
 /*********************************************************************
  * @fn      LSECFG_Current
  *
- * @brief   LSEÊô∂‰Ωì ÂÅèÁΩÆÁîµÊµÅÈÖçÁΩÆ
+ * @brief   LSEæßÃÂ ∆´÷√µÁ¡˜≈‰÷√
  *
  * @param   c   - 70%,100%,140%,200%
  *
@@ -105,7 +106,7 @@ void LSECFG_Current(LSECurrentTypeDef c)
 /*********************************************************************
  * @fn      LSECFG_Capacitance
  *
- * @brief   LSEÊô∂‰Ωì Ë¥üËΩΩÁîµÂÆπÈÖçÁΩÆ
+ * @brief   LSEæßÃÂ ∏∫‘ÿµÁ»›≈‰÷√
  *
  * @param   c   - refer to LSECapTypeDef
  *
@@ -126,11 +127,11 @@ void LSECFG_Capacitance(LSECapTypeDef c)
 /*********************************************************************
  * @fn      Calibration_LSI
  *
- * @brief   Ê†°ÂáÜÂÜÖÈÉ®32KÊó∂Èíü
+ * @brief   –£◊ºƒ⁄≤ø32K ±÷”
  *
- * @param   cali_Lv - Ê†°ÂáÜÁ≠âÁ∫ßÈÄâÊã©    Level_32 Ôºö2.4ms   1000ppm (32M ‰∏ªÈ¢ë)  1100ppm (60M ‰∏ªÈ¢ë)
- *                                   Level_64 Ôºö4.4ms   800ppm  (32M ‰∏ªÈ¢ë)  1000ppm (60M ‰∏ªÈ¢ë)
- *                                   Level_128 Ôºö8.4ms  600ppm  (32M ‰∏ªÈ¢ë)  800ppm  (60M ‰∏ªÈ¢ë)
+ * @param   cali_Lv - –£◊ºµ»º∂—°‘Ò    Level_32 £∫2.4ms   1000ppm (32M ÷˜∆µ)  1100ppm (60M ÷˜∆µ)
+ *                                   Level_64 £∫4.4ms   800ppm  (32M ÷˜∆µ)  1000ppm (60M ÷˜∆µ)
+ *                                   Level_128 £∫8.4ms  600ppm  (32M ÷˜∆µ)  800ppm  (60M ÷˜∆µ)                                                         
  *
  * @return  none
  */
@@ -138,160 +139,207 @@ void Calibration_LSI(Cali_LevelTypeDef cali_Lv)
 {
     UINT32 i;
     INT32 cnt_offset;
-    UINT8 retry = 0;
-    INT32 freq_sys;
+    UINT8  retry = 0;
+    UINT8  retry_all = 0;
+    INT32  freq_sys;
     UINT32 cnt_32k = 0;
-
+    UINT32 irqv = 0;
     freq_sys = GetSysClock();
 
     sys_safe_access_enable();
-    R8_CK32K_CONFIG |= RB_CLK_OSC32K_FILT;
     R8_CK32K_CONFIG &= ~RB_CLK_OSC32K_FILT;
+    R8_CK32K_CONFIG |= RB_CLK_OSC32K_FILT;
+    sys_safe_access_disable();
     sys_safe_access_enable();
     R8_XT32K_TUNE &= ~3;
     R8_XT32K_TUNE |= 1;
+    sys_safe_access_disable();
 
-    // Á≤óË∞É
-    sys_safe_access_enable();
-    R8_OSC_CAL_CTRL &= ~RB_OSC_CNT_TOTAL;
-    R8_OSC_CAL_CTRL |= 1;
-
-    while (1)
+    while(1)
     {
+        // ¥÷µ˜
         sys_safe_access_enable();
-        R8_OSC_CAL_CTRL |= RB_OSC_CNT_EN;
-        R16_OSC_CAL_CNT |= RB_OSC_CAL_OV_CLR;
-        R16_OSC_CAL_CNT |= RB_OSC_CAL_IF;
-        while ((R8_OSC_CAL_CTRL & RB_OSC_CNT_EN) == 0)
+        R8_OSC_CAL_CTRL &= ~RB_OSC_CNT_TOTAL;
+        R8_OSC_CAL_CTRL |= 1;
+        sys_safe_access_disable();
+
+        while(1)
         {
             sys_safe_access_enable();
             R8_OSC_CAL_CTRL |= RB_OSC_CNT_EN;
+            R16_OSC_CAL_CNT |= RB_OSC_CAL_OV_CLR;
+            R16_OSC_CAL_CNT |= RB_OSC_CAL_IF;
+            sys_safe_access_disable();
+            while( (R8_OSC_CAL_CTRL & RB_OSC_CNT_EN) == 0 )
+            {
+                sys_safe_access_enable();
+                R8_OSC_CAL_CTRL |= RB_OSC_CNT_EN;
+                sys_safe_access_disable();
+            }
+
+            while(!(R8_OSC_CAL_CTRL & RB_OSC_CNT_HALT)); // ”√”⁄∂™∆˙
+
+            SYS_DisableAllIrq(&irqv);
+            sys_safe_access_enable();
+            R8_OSC_CAL_CTRL &= ~RB_OSC_CNT_EN;
+            R8_OSC_CAL_CTRL |= RB_OSC_CNT_EN;
+            R16_OSC_CAL_CNT |= RB_OSC_CAL_OV_CLR;
+            R16_OSC_CAL_CNT |= RB_OSC_CAL_IF;
+            sys_safe_access_disable();
+            while( (R8_OSC_CAL_CTRL & RB_OSC_CNT_EN) == 0 )
+            {
+                sys_safe_access_enable();
+                R8_OSC_CAL_CTRL |= RB_OSC_CNT_EN;
+                sys_safe_access_disable();
+            }
+
+            while(R8_OSC_CAL_CTRL & RB_OSC_CNT_HALT);
+            cnt_32k = RTC_GetCycle32k();
+            while(RTC_GetCycle32k() == cnt_32k);
+            R16_OSC_CAL_CNT |= RB_OSC_CAL_OV_CLR;
+            SYS_RecoverIrq(irqv);
+            while(!(R8_OSC_CAL_CTRL & RB_OSC_CNT_HALT));
+            i = R16_OSC_CAL_CNT; //  µ ±–£◊º∫Û≤…—˘÷µ
+            cnt_offset = (i & 0x3FFF) + R8_OSC_CAL_OV_CNT * 0x3FFF - 2000 * (freq_sys / 1000) / CAB_LSIFQ;
+            if(((cnt_offset > -37 * (freq_sys / 1000) / 60000) && (cnt_offset < 37 * (freq_sys / 1000) / 60000)) || retry > 2)
+            {
+                if(retry)
+                    break;
+            }
+            retry++;
+            cnt_offset = (cnt_offset > 0) ? (((cnt_offset * 2) / (74 * (freq_sys/1000) / 60000)) + 1) / 2 : (((cnt_offset * 2) / (74 * (freq_sys/1000) / 60000 )) - 1) / 2;
+            sys_safe_access_enable();
+            R16_INT32K_TUNE += cnt_offset;
+            sys_safe_access_disable();
         }
 
-        while (!(R8_OSC_CAL_CTRL & RB_OSC_CNT_HALT))
-            ; // Áî®‰∫é‰∏¢ÂºÉ
+        // œ∏µ˜
+        // ≈‰÷√œ∏µ˜≤Œ ˝∫Û£¨∂™∆˙2¥Œ≤∂ªÒ÷µ£®»Ìº˛––Œ™£©…œ≈–∂œ“—”–“ª¥Œ£¨’‚¿Ô÷ª¡Ù“ª¥Œ
+        sys_safe_access_enable();
+        R8_OSC_CAL_CTRL &= ~RB_OSC_CNT_TOTAL;
+        R8_OSC_CAL_CTRL |= cali_Lv;
+        sys_safe_access_disable();
+        while( (R8_OSC_CAL_CTRL & RB_OSC_CNT_TOTAL) != cali_Lv )
+        {
+            sys_safe_access_enable();
+            R8_OSC_CAL_CTRL |= cali_Lv;
+            sys_safe_access_disable();
+        }
 
         sys_safe_access_enable();
         R8_OSC_CAL_CTRL &= ~RB_OSC_CNT_EN;
         R8_OSC_CAL_CTRL |= RB_OSC_CNT_EN;
         R16_OSC_CAL_CNT |= RB_OSC_CAL_OV_CLR;
         R16_OSC_CAL_CNT |= RB_OSC_CAL_IF;
-        while ((R8_OSC_CAL_CTRL & RB_OSC_CNT_EN) == 0)
+        sys_safe_access_disable();
+        while( (R8_OSC_CAL_CTRL & RB_OSC_CNT_EN) == 0 )
         {
             sys_safe_access_enable();
             R8_OSC_CAL_CTRL |= RB_OSC_CNT_EN;
+            sys_safe_access_disable();
         }
 
-        while (R8_OSC_CAL_CTRL & RB_OSC_CNT_HALT)
-            ;
-        cnt_32k = RTC_GetCycle32k();
-        while (RTC_GetCycle32k() == cnt_32k)
-            ;
+        while(!(R8_OSC_CAL_CTRL & RB_OSC_CNT_HALT)); // ”√”⁄∂™∆˙
+
+        SYS_DisableAllIrq(&irqv);
+        sys_safe_access_enable();
+        R8_OSC_CAL_CTRL &= ~RB_OSC_CNT_EN;
+        R8_OSC_CAL_CTRL |= RB_OSC_CNT_EN;
         R16_OSC_CAL_CNT |= RB_OSC_CAL_OV_CLR;
-        while (!(R8_OSC_CAL_CTRL & RB_OSC_CNT_HALT))
-            ;
-        i = R16_OSC_CAL_CNT; // ÂÆûÊó∂Ê†°ÂáÜÂêéÈááÊ†∑ÂÄº
-        cnt_offset = (i & 0x3FFF) + R8_OSC_CAL_OV_CNT * 0x3FFF - 2000 * (freq_sys / 1000) / CAB_LSIFQ;
-        if (((cnt_offset > -37 * (freq_sys / 1000) / CAB_LSIFQ) && (cnt_offset < 37 * (freq_sys / 1000) / CAB_LSIFQ)) ||
-            retry > 2)
+        R16_OSC_CAL_CNT |= RB_OSC_CAL_IF;
+        sys_safe_access_disable();
+        while( (R8_OSC_CAL_CTRL & RB_OSC_CNT_EN) == 0 )
         {
-            if (retry)
-                break;
+            sys_safe_access_enable();
+            R8_OSC_CAL_CTRL |= RB_OSC_CNT_EN;
+            sys_safe_access_disable();
         }
-        retry++;
-        cnt_offset = (cnt_offset > 0) ? (((cnt_offset * 2) / (74 * (freq_sys / 1000) / 60000)) + 1) / 2
-                                      : (((cnt_offset * 2) / (74 * (freq_sys / 1000) / 60000)) - 1) / 2;
+
+        while(R8_OSC_CAL_CTRL & RB_OSC_CNT_HALT);
+        cnt_32k = RTC_GetCycle32k();
+        while(RTC_GetCycle32k() == cnt_32k);
+        R16_OSC_CAL_CNT |= RB_OSC_CAL_OV_CLR;
+        SYS_RecoverIrq(irqv);
+        while(!(R8_OSC_CAL_CTRL & RB_OSC_CNT_HALT));
         sys_safe_access_enable();
-        R16_INT32K_TUNE += cnt_offset;
+        R8_OSC_CAL_CTRL &= ~RB_OSC_CNT_EN;
+        sys_safe_access_disable();
+        i = R16_OSC_CAL_CNT; //  µ ±–£◊º∫Û≤…—˘÷µ
+        cnt_offset = (i & 0x3FFF) + R8_OSC_CAL_OV_CNT * 0x3FFF -  4000 * (1 << cali_Lv) * (freq_sys / 1000000) / 256 * 1000/(CAB_LSIFQ/256);
+        cnt_offset = (cnt_offset > 0) ? ((((cnt_offset * 2*(100 )) / (1366 * ((1 << cali_Lv)/8) * (freq_sys/1000) / 60000)) + 1) / 2) : ((((cnt_offset * 2*(100)) / (1366 * ((1 << cali_Lv)/8) * (freq_sys/1000) / 60000)) - 1) / 2);
+        if((cnt_offset > 0)&&(((R16_INT32K_TUNE>>5)+cnt_offset)>0xFF))
+        {
+            if(retry_all>2)
+            {
+                sys_safe_access_enable();
+                R16_INT32K_TUNE |= (0xFF<<5);
+                sys_safe_access_disable();
+                return;
+            }
+            else
+            {
+                sys_safe_access_enable();
+                R16_INT32K_TUNE = (R16_INT32K_TUNE&0x1F)|(0x7F<<5);
+                sys_safe_access_disable();
+            }
+        }
+        else if((cnt_offset < 0)&&((R16_INT32K_TUNE>>5)<(-cnt_offset)))
+        {
+            if(retry_all>2)
+            {
+                sys_safe_access_enable();
+                R16_INT32K_TUNE &= 0x1F;
+                sys_safe_access_disable();
+                return;
+            }
+            else
+            {
+                sys_safe_access_enable();
+                R16_INT32K_TUNE = (R16_INT32K_TUNE&0x1F)|(0x7F<<5);
+                sys_safe_access_disable();
+            }
+        }
+        else
+        {
+            sys_safe_access_enable();
+            R16_INT32K_TUNE += (cnt_offset<<5);
+            sys_safe_access_disable();
+            return;
+        }
+        retry_all++;
+
     }
-
-    // ÁªÜË∞É
-    // ÈÖçÁΩÆÁªÜË∞ÉÂèÇÊï∞ÂêéÔºå‰∏¢ÂºÉ2Ê¨°ÊçïËé∑ÂÄºÔºàËΩØ‰ª∂Ë°å‰∏∫Ôºâ‰∏äÂà§Êñ≠Â∑≤Êúâ‰∏ÄÊ¨°ÔºåËøôÈáåÂè™Áïô‰∏ÄÊ¨°
-    sys_safe_access_enable();
-    R8_OSC_CAL_CTRL &= ~RB_OSC_CNT_TOTAL;
-    R8_OSC_CAL_CTRL |= cali_Lv;
-    while ((R8_OSC_CAL_CTRL & RB_OSC_CNT_TOTAL) != cali_Lv)
-    {
-        sys_safe_access_enable();
-        R8_OSC_CAL_CTRL |= cali_Lv;
-    }
-
-    sys_safe_access_enable();
-    R8_OSC_CAL_CTRL &= ~RB_OSC_CNT_EN;
-    R8_OSC_CAL_CTRL |= RB_OSC_CNT_EN;
-    R16_OSC_CAL_CNT |= RB_OSC_CAL_OV_CLR;
-    R16_OSC_CAL_CNT |= RB_OSC_CAL_IF;
-    while ((R8_OSC_CAL_CTRL & RB_OSC_CNT_EN) == 0)
-    {
-        sys_safe_access_enable();
-        R8_OSC_CAL_CTRL |= RB_OSC_CNT_EN;
-    }
-
-    while (!(R8_OSC_CAL_CTRL & RB_OSC_CNT_HALT))
-        ; // Áî®‰∫é‰∏¢ÂºÉ
-
-    sys_safe_access_enable();
-    R8_OSC_CAL_CTRL &= ~RB_OSC_CNT_EN;
-    R8_OSC_CAL_CTRL |= RB_OSC_CNT_EN;
-    R16_OSC_CAL_CNT |= RB_OSC_CAL_OV_CLR;
-    R16_OSC_CAL_CNT |= RB_OSC_CAL_IF;
-    while ((R8_OSC_CAL_CTRL & RB_OSC_CNT_EN) == 0)
-    {
-        sys_safe_access_enable();
-        R8_OSC_CAL_CTRL |= RB_OSC_CNT_EN;
-    }
-
-    while (R8_OSC_CAL_CTRL & RB_OSC_CNT_HALT)
-        ;
-    cnt_32k = RTC_GetCycle32k();
-    while (RTC_GetCycle32k() == cnt_32k)
-        ;
-    R16_OSC_CAL_CNT |= RB_OSC_CAL_OV_CLR;
-    while (!(R8_OSC_CAL_CTRL & RB_OSC_CNT_HALT))
-        ;
-    sys_safe_access_enable();
-    R8_OSC_CAL_CTRL &= ~RB_OSC_CNT_EN;
-    i = R16_OSC_CAL_CNT; // ÂÆûÊó∂Ê†°ÂáÜÂêéÈááÊ†∑ÂÄº
-
-    cnt_offset = (i & 0x3FFF) + R8_OSC_CAL_OV_CNT * 0x3FFF -
-                 4000 * (1 << cali_Lv) * (freq_sys / 1000000) / 256 * 1000 / (CAB_LSIFQ / 256);
-    cnt_offset =
-        (cnt_offset > 0)
-            ? ((((cnt_offset * 2 * (100)) / (1366 * ((1 << cali_Lv) / 8) * (freq_sys / 1000) / 60000)) + 1) / 2) << 5
-            : ((((cnt_offset * 2 * (100)) / (1366 * ((1 << cali_Lv) / 8) * (freq_sys / 1000) / 60000)) - 1) / 2) << 5;
-    sys_safe_access_enable();
-    R16_INT32K_TUNE += cnt_offset;
 }
 
 /*********************************************************************
  * @fn      RTCInitTime
  *
- * @brief   RTCÊó∂ÈíüÂàùÂßãÂåñÂΩìÂâçÊó∂Èó¥
+ * @brief   RTC ±÷”≥ı ºªØµ±«∞ ±º‰
  *
- * @param   y       - ÈÖçÁΩÆÂπ¥ÔºåMAX_Y = BEGYEAR + 44
- * @param   mon     - ÈÖçÁΩÆÊúàÔºåMAX_MON = 12
- * @param   d       - ÈÖçÁΩÆÊó•ÔºåMAX_D = 31
- * @param   h       - ÈÖçÁΩÆÂ∞èÊó∂ÔºåMAX_H = 23
- * @param   m       - ÈÖçÁΩÆÂàÜÈíüÔºåMAX_M = 59
- * @param   s       - ÈÖçÁΩÆÁßíÔºåMAX_S = 59
+ * @param   y       - ≈‰÷√ƒÍ£¨MAX_Y = BEGYEAR + 44
+ * @param   mon     - ≈‰÷√‘¬£¨MAX_MON = 12
+ * @param   d       - ≈‰÷√»’£¨MAX_D = 31
+ * @param   h       - ≈‰÷√–° ±£¨MAX_H = 23
+ * @param   m       - ≈‰÷√∑÷÷”£¨MAX_M = 59
+ * @param   s       - ≈‰÷√√Î£¨MAX_S = 59
  *
  * @return  none
  */
 void RTC_InitTime(uint16_t y, uint16_t mon, uint16_t d, uint16_t h, uint16_t m, uint16_t s)
 {
-    uint32_t t;
-    uint16_t year, month, day, sec2, t32k;
+    uint32_t         t;
+    uint16_t         year, month, day, sec2, t32k;
     volatile uint8_t clk_pin;
 
     year = y;
     month = mon;
     day = 0;
-    while (year > BEGYEAR)
+    while(year > BEGYEAR)
     {
         day += YearLength(year - 1);
         year--;
     }
-    while (month > 1)
+    while(month > 1)
     {
         day += monthLength(IsLeapYear(y), month - 2);
         month--;
@@ -306,23 +354,23 @@ void RTC_InitTime(uint16_t y, uint16_t mon, uint16_t d, uint16_t h, uint16_t m, 
     do
     {
         clk_pin = (R8_CK32K_CONFIG & RB_32K_CLK_PIN);
-    } while (clk_pin != (R8_CK32K_CONFIG & RB_32K_CLK_PIN));
-    if (!clk_pin)
+    } while(clk_pin != (R8_CK32K_CONFIG & RB_32K_CLK_PIN));
+    if(!clk_pin)
     {
-        while (!clk_pin)
+        while(!clk_pin)
         {
             do
             {
                 clk_pin = (R8_CK32K_CONFIG & RB_32K_CLK_PIN);
-            } while (clk_pin != (R8_CK32K_CONFIG & RB_32K_CLK_PIN));
+            } while(clk_pin != (R8_CK32K_CONFIG & RB_32K_CLK_PIN));
         }
     }
 
     sys_safe_access_enable();
     R32_RTC_TRIG = day;
     R8_RTC_MODE_CTRL |= RB_RTC_LOAD_HI;
-    while ((R32_RTC_TRIG & 0x3FFF) != (R32_RTC_CNT_DAY & 0x3FFF))
-        ;
+    sys_safe_access_disable();
+    while((R32_RTC_TRIG & 0x3FFF) != (R32_RTC_CNT_DAY & 0x3FFF));
     sys_safe_access_enable();
     R32_RTC_TRIG = t;
     R8_RTC_MODE_CTRL |= RB_RTC_LOAD_LO;
@@ -332,14 +380,14 @@ void RTC_InitTime(uint16_t y, uint16_t mon, uint16_t d, uint16_t h, uint16_t m, 
 /*********************************************************************
  * @fn      RTC_GetTime
  *
- * @brief   Ëé∑ÂèñÂΩìÂâçÊó∂Èó¥
+ * @brief   ªÒ»°µ±«∞ ±º‰
  *
- * @param   py      - Ëé∑ÂèñÂà∞ÁöÑÂπ¥ÔºåMAX_Y = BEGYEAR + 44
- * @param   pmon    - Ëé∑ÂèñÂà∞ÁöÑÊúàÔºåMAX_MON = 12
- * @param   pd      - Ëé∑ÂèñÂà∞ÁöÑÊó•ÔºåMAX_D = 31
- * @param   ph      - Ëé∑ÂèñÂà∞ÁöÑÂ∞èÊó∂ÔºåMAX_H = 23
- * @param   pm      - Ëé∑ÂèñÂà∞ÁöÑÂàÜÈíüÔºåMAX_M = 59
- * @param   ps      - Ëé∑ÂèñÂà∞ÁöÑÁßíÔºåMAX_S = 59
+ * @param   py      - ªÒ»°µΩµƒƒÍ£¨MAX_Y = BEGYEAR + 44
+ * @param   pmon    - ªÒ»°µΩµƒ‘¬£¨MAX_MON = 12
+ * @param   pd      - ªÒ»°µΩµƒ»’£¨MAX_D = 31
+ * @param   ph      - ªÒ»°µΩµƒ–° ±£¨MAX_H = 23
+ * @param   pm      - ªÒ»°µΩµƒ∑÷÷”£¨MAX_M = 59
+ * @param   ps      - ªÒ»°µΩµƒ√Î£¨MAX_S = 59
  *
  * @return  none
  */
@@ -355,14 +403,14 @@ void RTC_GetTime(uint16_t *py, uint16_t *pmon, uint16_t *pd, uint16_t *ph, uint1
     t = sec2 * 2 + ((t32k < 0x8000) ? 0 : 1);
 
     *py = BEGYEAR;
-    while (day >= YearLength(*py))
+    while(day >= YearLength(*py))
     {
         day -= YearLength(*py);
         (*py)++;
     }
 
     *pmon = 0;
-    while (day >= monthLength(IsLeapYear(*py), *pmon))
+    while(day >= monthLength(IsLeapYear(*py), *pmon))
     {
         day -= monthLength(IsLeapYear(*py), *pmon);
         (*pmon)++;
@@ -377,9 +425,9 @@ void RTC_GetTime(uint16_t *py, uint16_t *pmon, uint16_t *pd, uint16_t *ph, uint1
 /*********************************************************************
  * @fn      RTC_SetCycle32k
  *
- * @brief   Âü∫‰∫éLSE/LSIÊó∂ÈíüÔºåÈÖçÁΩÆÂΩìÂâçRTC Âë®ÊúüÊï∞
+ * @brief   ª˘”⁄LSE/LSI ±÷”£¨≈‰÷√µ±«∞RTC ÷‹∆⁄ ˝
  *
- * @param   cyc     - ÈÖçÁΩÆÂë®ÊúüËÆ°Êï∞ÂàùÂÄºÔºåMAX_CYC = 0xA8BFFFFF = 2831155199
+ * @param   cyc     - ≈‰÷√÷‹∆⁄º∆ ˝≥ı÷µ£¨MAX_CYC = 0xA8BFFFFF = 2831155199
  *
  * @return  none
  */
@@ -390,7 +438,7 @@ void RTC_SetCycle32k(uint32_t cyc)
     do
     {
         clk_pin = (R8_CK32K_CONFIG & RB_32K_CLK_PIN);
-    } while ((clk_pin != (R8_CK32K_CONFIG & RB_32K_CLK_PIN)) || (!clk_pin));
+    } while((clk_pin != (R8_CK32K_CONFIG & RB_32K_CLK_PIN)) || (!clk_pin));
 
     sys_safe_access_enable();
     R32_RTC_TRIG = cyc;
@@ -401,11 +449,11 @@ void RTC_SetCycle32k(uint32_t cyc)
 /*********************************************************************
  * @fn      RTC_GetCycle32k
  *
- * @brief   Âü∫‰∫éLSE/LSIÊó∂ÈíüÔºåËé∑ÂèñÂΩìÂâçRTC Âë®ÊúüÊï∞
+ * @brief   ª˘”⁄LSE/LSI ±÷”£¨ªÒ»°µ±«∞RTC ÷‹∆⁄ ˝
  *
  * @param   none
  *
- * @return  ÂΩìÂâçÂë®ÊúüÊï∞ÔºåMAX_CYC = 0xA8BFFFFF = 2831155199
+ * @return  µ±«∞÷‹∆⁄ ˝£¨MAX_CYC = 0xA8BFFFFF = 2831155199
  */
 uint32_t RTC_GetCycle32k(void)
 {
@@ -414,7 +462,7 @@ uint32_t RTC_GetCycle32k(void)
     do
     {
         i = R32_RTC_CNT_32K;
-    } while (i != R32_RTC_CNT_32K);
+    } while(i != R32_RTC_CNT_32K);
 
     return (i);
 }
@@ -422,7 +470,7 @@ uint32_t RTC_GetCycle32k(void)
 /*********************************************************************
  * @fn      RTC_TMRFunCfg
  *
- * @brief   RTCÂÆöÊó∂Ê®°ÂºèÈÖçÁΩÆÔºàÊ≥®ÊÑèÂÆöÊó∂Âü∫ÂáÜÂõ∫ÂÆö‰∏∫32768HzÔºâ
+ * @brief   RTC∂® ±ƒ£ Ω≈‰÷√£®◊¢“‚∂® ±ª˘◊ºπÃ∂®Œ™32768Hz£©
  *
  * @param   t   - refer to RTC_TMRCycTypeDef
  *
@@ -432,6 +480,7 @@ void RTC_TMRFunCfg(RTC_TMRCycTypeDef t)
 {
     sys_safe_access_enable();
     R8_RTC_MODE_CTRL &= ~(RB_RTC_TMR_EN | RB_RTC_TMR_MODE);
+    sys_safe_access_disable();
     sys_safe_access_enable();
     R8_RTC_MODE_CTRL |= RB_RTC_TMR_EN | (t);
     sys_safe_access_disable();
@@ -440,9 +489,9 @@ void RTC_TMRFunCfg(RTC_TMRCycTypeDef t)
 /*********************************************************************
  * @fn      RTC_TRIGFunCfg
  *
- * @brief   RTCÊó∂Èó¥Ëß¶ÂèëÊ®°ÂºèÈÖçÁΩÆ
+ * @brief   RTC ±º‰¥•∑¢ƒ£ Ω≈‰÷√
  *
- * @param   cyc - Áõ∏ÂØπÂΩìÂâçÊó∂Èó¥ÁöÑËß¶ÂèëÈó¥ÈöîÊó∂Èó¥ÔºåÂü∫‰∫éLSE/LSIÊó∂ÈíüÂë®ÊúüÊï∞
+ * @param   cyc - œ‡∂‘µ±«∞ ±º‰µƒ¥•∑¢º‰∏Ù ±º‰£¨ª˘”⁄LSE/LSI ±÷”÷‹∆⁄ ˝
  *
  * @return  none
  */
@@ -451,7 +500,7 @@ void RTC_TRIGFunCfg(uint32_t cyc)
     uint32_t t;
 
     t = RTC_GetCycle32k() + cyc;
-    if (t > 0xA8C00000)
+    if(t > 0xA8C00000)
     {
         t -= 0xA8C00000;
     }
@@ -465,9 +514,9 @@ void RTC_TRIGFunCfg(uint32_t cyc)
 /*********************************************************************
  * @fn      RTC_ModeFunDisable
  *
- * @brief   RTC Ê®°ÂºèÂäüËÉΩÂÖ≥Èó≠
+ * @brief   RTC ƒ£ Ωπ¶ƒ‹πÿ±’
  *
- * @param   m   - ÈúÄË¶ÅÂÖ≥Èó≠ÁöÑÂΩìÂâçÊ®°Âºè
+ * @param   m   - –Ë“™πÿ±’µƒµ±«∞ƒ£ Ω
  *
  * @return  none
  */
@@ -475,11 +524,11 @@ void RTC_ModeFunDisable(RTC_MODETypeDef m)
 {
     uint8_t i = 0;
 
-    if (m == RTC_TRIG_MODE)
+    if(m == RTC_TRIG_MODE)
     {
         i |= RB_RTC_TRIG_EN;
     }
-    else if (m == RTC_TMR_MODE)
+    else if(m == RTC_TMR_MODE)
     {
         i |= RB_RTC_TMR_EN;
     }
@@ -492,15 +541,15 @@ void RTC_ModeFunDisable(RTC_MODETypeDef m)
 /*********************************************************************
  * @fn      RTC_GetITFlag
  *
- * @brief   Ëé∑ÂèñRTC‰∏≠Êñ≠Ê†áÂøó
+ * @brief   ªÒ»°RTC÷–∂œ±Í÷æ
  *
  * @param   f   - refer to RTC_EVENTTypeDef
  *
- * @return  ‰∏≠Êñ≠Ê†áÂøóÁä∂ÊÄÅ
+ * @return  ÷–∂œ±Í÷æ◊¥Ã¨
  */
 uint8_t RTC_GetITFlag(RTC_EVENTTypeDef f)
 {
-    if (f == RTC_TRIG_EVENT)
+    if(f == RTC_TRIG_EVENT)
     {
         return (R8_RTC_FLAG_CTRL & RB_RTC_TRIG_FLAG);
     }
@@ -513,7 +562,7 @@ uint8_t RTC_GetITFlag(RTC_EVENTTypeDef f)
 /*********************************************************************
  * @fn      RTC_ClearITFlag
  *
- * @brief   Ê∏ÖÈô§RTC‰∏≠Êñ≠Ê†áÂøó
+ * @brief   «Â≥˝RTC÷–∂œ±Í÷æ
  *
  * @param   f   - refer to RTC_EVENTTypeDef
  *
@@ -521,15 +570,15 @@ uint8_t RTC_GetITFlag(RTC_EVENTTypeDef f)
  */
 void RTC_ClearITFlag(RTC_EVENTTypeDef f)
 {
-    switch (f)
+    switch(f)
     {
-    case RTC_TRIG_EVENT:
-        R8_RTC_FLAG_CTRL = RB_RTC_TRIG_CLR;
-        break;
-    case RTC_TMR_EVENT:
-        R8_RTC_FLAG_CTRL = RB_RTC_TMR_CLR;
-        break;
-    default:
-        break;
+        case RTC_TRIG_EVENT:
+            R8_RTC_FLAG_CTRL = RB_RTC_TRIG_CLR;
+            break;
+        case RTC_TMR_EVENT:
+            R8_RTC_FLAG_CTRL = RB_RTC_TMR_CLR;
+            break;
+        default:
+            break;
     }
 }

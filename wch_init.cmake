@@ -113,38 +113,12 @@ target_sources(tflite INTERFACE
     ${tflite_sources}
 )
 
-
+ 
 # chip 
 if(NOT CHIP_NAME)
     message(FATAL_ERROR "please set CHIP_NAME for ch32")
 elseif(CHIP_NAME STREQUAL "ch32v307")
-    add_compile_options(
-        -march=rv32imafcxw
-        -mabi=ilp32f
-        -msmall-data-limit=8
-        -mno-save-restore
-        -fmessage-length=0
-        -fsigned-char
-        -ffunction-sections
-        -fdata-sections
-        -fsingle-precision-constant
-        -Wunused
-        -Wuninitialized
-        -lm
-    )
-    include_directories(${WCH_SDK_PATH}/hal/CH32V307/include)
     aux_source_directory(${WCH_SDK_PATH}/hal/CH32V307/src FILE_SRC)
-    set(LINKER_SCRIPT  ${WCH_SDK_PATH}/hal/CH32V307/Link.ld)
-    add_link_options(
-                -nostartfiles 
-                -Xlinker --gc-sections  
-                -Wl,--print-memory-usage
-                # -Wl,-Map,${PROJECT_NAME}.map 
-                --specs=nano.specs 
-                --specs=nosys.specs
-                #-static-libstdc++
-                -march=rv32imafcxw -mabi=ilp32f -flto)
-    add_link_options(-T ${LINKER_SCRIPT})
     function(config_app param)
         # current app source file
         add_executable(${param})
@@ -155,23 +129,50 @@ elseif(CHIP_NAME STREQUAL "ch32v307")
             ${APP_SRC}
         )
         target_include_directories(${param} PRIVATE
+            ${WCH_SDK_PATH}/hal/CH32V307/include
             ${CMAKE_CURRENT_SOURCE_DIR}/include
         )
-        target_link_options(${param} PRIVATE 
+        target_compile_options(${param}  PRIVATE 
+            -march=rv32imafcxw
+            -mabi=ilp32f
+            -msmall-data-limit=8
+            -mno-save-restore
+            -fmessage-length=0
+            -fsigned-char
+            -ffunction-sections
+            -fdata-sections
+            -fsingle-precision-constant
+            -Wunused
+            -Wuninitialized
+            -lm
+            $<$<COMPILE_LANGUAGE:CXX>:
+                ${common_flags} 
+                -fno-rtti 
+                -fno-exceptions
+                -fno-threadsafe-statics
+                -Werror 
+                -Wno-return-type 
+                -Wno-unused-function
+                -Wno-volatile  
+                -Wno-deprecated-declarations 
+                -Wno-unused-variable
+                -Wno-strict-aliasing>
+        )
+        target_link_options(${param} PRIVATE
+            -nostartfiles 
+            -Xlinker --gc-sections  
+            -Wl,--print-memory-usage
+            # -Wl,-Map,${PROJECT_NAME}.map 
+            --specs=nano.specs 
+            --specs=nosys.specs
+            #-static-libstdc++
+            -march=rv32imafcxw 
+            -mabi=ilp32f 
+            -flto
+            -T ${WCH_SDK_PATH}/hal/CH32V307/Link.ld
             -Wl,-Map,${param}.map 
         )
-        target_compile_options(${param} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:
-                                      ${common_flags} 
-                                      -fno-rtti 
-                                      -fno-exceptions
-                                      -fno-threadsafe-statics
-                                      -Werror 
-                                      -Wno-return-type 
-                                      -Wno-unused-function
-                                      -Wno-volatile  
-                                      -Wno-deprecated-declarations 
-                                      -Wno-unused-variable
-                                      -Wno-strict-aliasing>)
+
         set(HEX_FILE ${PROJECT_BINARY_DIR}/app.hex)
         set(BIN_FILE ${PROJECT_BINARY_DIR}/app.bin)
         add_custom_command(
@@ -186,22 +187,8 @@ elseif(CHIP_NAME STREQUAL "ch32v307")
     endfunction()
     
 elseif(CHIP_NAME STREQUAL "ch58x")
-    add_compile_options(-march=rv32imac -mabi=ilp32 -mcmodel=medany -msmall-data-limit=8 -mno-save-restore)
-    add_compile_options(-fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -fno-common)
-    
     include_directories(${WCH_SDK_PATH}/hal/CH58X/include)
     aux_source_directory(${WCH_SDK_PATH}/hal/CH58X/src FILE_SRC)
-
-    set(LINKER_SCRIPT  ${WCH_SDK_PATH}/hal/CH58X/Link.ld)
-    add_link_options(
-                -nostartfiles 
-                -Xlinker --gc-sections  
-                -Wl,--print-memory-usage
-                # -Wl,-Map,${PROJECT_NAME}.map 
-                --specs=nano.specs 
-                --specs=nosys.specs)
-    add_link_options(-T ${LINKER_SCRIPT})
-
     function(config_app param)
         # current app source file
         add_executable(${param})
@@ -210,38 +197,45 @@ elseif(CHIP_NAME STREQUAL "ch58x")
             ${FILE_SRC}
             ${WCH_SDK_PATH}/hal/CH58X/startup_CH583.S
             ${APP_SRC}
-            ${WCH_SDK_PATH}/hal/CH58X/Link.ld
         )
         target_include_directories(${param} PRIVATE
+            ${WCH_SDK_PATH}/hal/CH58X/include
             ${CMAKE_CURRENT_SOURCE_DIR}/include
         )
-        target_link_options(${param} PRIVATE 
-            -Wl,-Map,${param}.map 
+        target_compile_options(${param}  PRIVATE
+            -march=rv32imac
+            -mabi=ilp32
+            -mcmodel=medany
+            -msmall-data-limit=8
+            -mno-save-restore
+            -fmessage-length=0
+            -fsigned-char 
+            -ffunction-sections 
+            -fdata-sections 
+            -fno-common
         )
+        target_link_options(${param} PRIVATE
+            -nostartfiles 
+            -Xlinker --gc-sections  
+            -Wl,--print-memory-usage
+            # -Wl,-Map,${PROJECT_NAME}.map 
+            --specs=nano.specs 
+            --specs=nosys.specs
+            -T ${WCH_SDK_PATH}/hal/CH58X/Link.ld
+            -Wl,-Map,app.map 
+        )
+        set(HEX_FILE ${PROJECT_BINARY_DIR}/app.hex)
+        set(BIN_FILE ${PROJECT_BINARY_DIR}/app.bin)
+        add_custom_command(
+                TARGET ${param} POST_BUILD
+                COMMAND ${CMAKE_OBJCOPY} -Oihex $<TARGET_FILE:${param}> ${HEX_FILE}
+                COMMAND ${CMAKE_OBJCOPY} -Obinary $<TARGET_FILE:${param}> ${BIN_FILE}
+        )        
         target_link_libraries(${param} 
             ${WCH_SDK_PATH}/hal/CH58X/lib/LIBCH58xBLE.a
             ${WCH_SDK_PATH}/hal/CH58X/lib/libISP583.a
             ${WCH_SDK_PATH}/hal/CH58X/lib/libRV3UFI.a
             ${WCH_SDK_PATH}/hal/CH58X/lib/LIBWCHLWNS.a
-        )
-
-
-        # set(HEX_FILE ${PROJECT_BINARY_DIR}/app.hex)
-        # set(BIN_FILE ${PROJECT_BINARY_DIR}/app.bin)
-        # add_custom_command(TARGET ${param} POST_BUILD
-        #     COMMAND ${CMAKE_OBJCOPY} -Oihex $<TARGET_FILE:${param}> ${HEX_FILE}
-        #     COMMAND ${CMAKE_OBJCOPY} -Obinary $<TARGET_FILE:${param}> ${BIN_FILE}
-        # )
-        # add_custom_command(
-        #         TARGET ${param} POST_BUILD
-        #         COMMAND ${CMAKE_OBJCOPY} -Oihex $<TARGET_FILE:${param}> ${HEX_FILE}
-        #         COMMAND ${CMAKE_OBJCOPY} -Obinary $<TARGET_FILE:${param}> ${BIN_FILE}
-        # )
-        set(HEX_FILE ${PROJECT_BINARY_DIR}/app.hex)
-        add_custom_command(
-                TARGET ${param} POST_BUILD
-                COMMAND ${CMAKE_OBJCOPY} -Oihex $<TARGET_FILE:${param}> ${HEX_FILE}
-                #COMMAND ${CMAKE_OBJCOPY} -Obinary $<TARGET_FILE:${param}> ${BIN_FILE}
         )
     endfunction()
 endif()
