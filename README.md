@@ -30,4 +30,3 @@ cell_state_info.quantized_cell_clip = static_cast<int16_t>(
                       -32768.0),
              32767.0));
 ```
-Since I'm too lazy to fork it, either esp's port or the original port can be used.
