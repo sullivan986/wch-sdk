@@ -3,13 +3,27 @@
 #include "ch32v30x_opa.h"
 #include "coroutine"
 #include "debug.h"
-#include "main_functions.h"
+#include "portable.h"
 #include "task.h"
+#include "tflite_use.hpp"
 #include "utensil.hpp"
 #include <algorithm>
+#include <cstdio>
+#include <model.hpp>
 #include <vector>
 
-extern "C" int main(void)
+TaskHandle_t process_task_Handler;
+
+void process_task(void *p)
+{
+    tflite_use<tu_AddFullyConnected> tu(g_model, 2 * 1024);
+    for (int i = 0; i < 20; i++)
+    {
+        tu.run();
+    }
+}
+
+extern "C" int main()
 {
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
     SystemCoreClockUpdate();
@@ -19,11 +33,12 @@ extern "C" int main(void)
     log_debug("ChipID:%08x", DBGMCU_GetCHIPID());
     log_debug("FreeRTOS Kernel Version:%s", tskKERNEL_VERSION_NUMBER);
 
-    setup();
-    /* Note: Modified from original while(true) to accommodate CI */
-    for (int i = 0; i < 10; i++)
+    xTaskCreate(process_task, "process_task", 4096, nullptr, 5, &process_task_Handler);
+    vTaskStartScheduler();
+    while (true)
     {
-        loop();
+        log_error("in end");
+        task_sleep_ms(1000);
     }
     return 0;
 }

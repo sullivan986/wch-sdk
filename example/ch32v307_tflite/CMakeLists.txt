@@ -20,23 +20,8 @@ target_compile_options(ch32v307_tflite PRIVATE
 -DTF_LITE_USE_GLOBAL_CMATH_FUNCTIONS
 -DTF_LITE_USE_GLOBAL_MAX
 -DTF_LITE_USE_GLOBAL_MIN
-
-# -Wno-error=attributes
-# -Wno-error=shadow
-# -Wno-maybe-uninitialized
-# #-Wno-missing-field-initializers
-# -Wno-error=sign-compare
 -Wno-error=double-promotion
-# -Wno-type-limits
-# -Wno-error=stringop-overread
-
-# -O3
-# -Wstrict-aliasing -Wno-unused-parameter -Wall -Wextra -Wvla
-# -Wsign-compare -Wdouble-promotion -Wswitch -Wunused-function
-# -Wshadow -Wunused-variable -fno-unwind-tables
-
-# -fmessage-length=0 -Wno-nonnull
-
+-lprintfloat
 )
 
 
