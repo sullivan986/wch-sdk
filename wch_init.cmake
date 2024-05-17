@@ -147,7 +147,7 @@ elseif(CHIP_NAME STREQUAL "ch32v307")
             -lm
             $<$<COMPILE_LANGUAGE:CXX>:
                 ${common_flags} 
-                -fno-rtti 
+                #-fno-rtti 
                 -fno-exceptions
                 -fno-threadsafe-statics
                 -Werror 
@@ -157,6 +157,7 @@ elseif(CHIP_NAME STREQUAL "ch32v307")
                 -Wno-deprecated-declarations 
                 -Wno-unused-variable
                 -Wno-strict-aliasing>
+                #-fpermissive
         )
         target_link_options(${param} PRIVATE
             -nostartfiles 
