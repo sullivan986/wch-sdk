@@ -32,7 +32,7 @@ cell_state_info.quantized_cell_clip = static_cast<int16_t>(
 ```
 
 ### tflite minst
-Use `train/test.ipynb` to train a model that has been quantized by int8, and due to the large number of operators used, you need to enable the non-zero wait area of ch32v307, you should change line 192 in the `{wch-sdk-path}/hal/CH32V307/Link.ld` line 26.
+Use `train/test.ipynb` to train a model that has been quantized by int8, and due to the large number of operators used, you need to enable the non-zero wait area of ch32v307, you should change line 26 in the `{wch-sdk-path}/hal/CH32V307/Link.ld` line 26.
 ```
 FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 256K
 ```
