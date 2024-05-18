@@ -19,7 +19,7 @@ void process_task(void *p)
 {
     tflite_use<tu_AddFullyConnected, tu_AddStridedSlice, tu_AddConv2D, tu_AddMaxPool2D, tu_AddPack, tu_AddShape,
                tu_AddReshape, tu_AddSoftmax, tu_AddQuantize, tu_AddDequantize>
-        tu(model_tflite, 20 * 1024);
+        tu(model_tflite, 14 * 1024);
     auto output = tu.run([](TfLiteTensor *input) {
         auto data_p = &test_data[0][0];
         for (int i = 0; i < 28 * 28; i++)
