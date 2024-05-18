@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 
 # 工具链设置
 set(TOOLPATH  /PATH/TO/GCC/BIN)
-set(WCH_SDK_PATH ../..)
+set(WCH_SDK_PATH ../../..)
 set(CHIP_NAME "ch32v307")
 
 # 项目设置

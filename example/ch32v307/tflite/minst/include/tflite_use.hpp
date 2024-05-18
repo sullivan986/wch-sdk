@@ -1,6 +1,7 @@
 #ifndef TFLITE_USE_HPP
 #define TFLITE_USE_HPP
 
+#include "tensorflow/lite/micro/kernels/micro_ops.h"
 #include "utensil.hpp"
 #include <cmath>
 #include <cstddef>
@@ -186,8 +187,6 @@ template <tu_Resolver_Operator... Resolver_Operators> class tflite_use
     TfLiteStatus status;
     // buff
     std::vector<uint8_t> tensor_arena;
-    // 计算次数计数
-    int inference_count = 0;
     // 输入张量指针
     TfLiteTensor *input;
     // 输出张量指针
@@ -252,7 +251,7 @@ template <tu_Resolver_Operator... Resolver_Operators> class tflite_use
             status = resolver.AddCumSum();
             break;
         case tu_AddDelay:
-            status = resolver.AddDelay();
+            // status = resolver.AddDelay();
             break;
         case tu_AddDepthToSpace:
             status = resolver.AddDepthToSpace();
@@ -273,7 +272,7 @@ template <tu_Resolver_Operator... Resolver_Operators> class tflite_use
             status = resolver.AddEmbeddingLookup();
             break;
         case tu_AddEnergy:
-            status = resolver.AddEnergy();
+            // status = resolver.AddEnergy();
             break;
         case tu_AddElu:
             status = resolver.AddElu();
@@ -291,22 +290,22 @@ template <tu_Resolver_Operator... Resolver_Operators> class tflite_use
             status = resolver.AddExpandDims();
             break;
         case tu_AddFftAutoScale:
-            status = resolver.AddFftAutoScale();
+            // status = resolver.AddFftAutoScale();
             break;
         case tu_AddFill:
             status = resolver.AddFill();
             break;
         case tu_AddFilterBank:
-            status = resolver.AddFilterBank();
+            // status = resolver.AddFilterBank();
             break;
         case tu_AddFilterBankLog:
-            status = resolver.AddFilterBankLog();
+            // status = resolver.AddFilterBankLog();
             break;
         case tu_AddFilterBankSquareRoot:
-            status = resolver.AddFilterBankSquareRoot();
+            // status = resolver.AddFilterBankSquareRoot();
             break;
         case tu_AddFilterBankSpectralSubtraction:
-            status = resolver.AddFilterBankSpectralSubtraction();
+            // status = resolver.AddFilterBankSpectralSubtraction();
             break;
         case tu_AddFloor:
             status = resolver.AddFloor();
@@ -318,7 +317,7 @@ template <tu_Resolver_Operator... Resolver_Operators> class tflite_use
             status = resolver.AddFloorMod();
             break;
         case tu_AddFramer:
-            status = resolver.AddFramer();
+            // status = resolver.AddFramer();
             break;
         case tu_AddFullyConnected:
             status = resolver.AddFullyConnected();
@@ -342,7 +341,7 @@ template <tu_Resolver_Operator... Resolver_Operators> class tflite_use
             status = resolver.AddIf();
             break;
         case tu_AddIrfft:
-            status = resolver.AddIrfft();
+            // status = resolver.AddIrfft();
             break;
         case tu_AddL2Normalization:
             status = resolver.AddL2Normalization();
@@ -402,7 +401,7 @@ template <tu_Resolver_Operator... Resolver_Operators> class tflite_use
             status = resolver.AddNotEqual();
             break;
         case tu_AddOverlapAdd:
-            status = resolver.AddOverlapAdd();
+            // status = resolver.AddOverlapAdd();
             break;
         case tu_AddPack:
             status = resolver.AddPack();
@@ -414,7 +413,7 @@ template <tu_Resolver_Operator... Resolver_Operators> class tflite_use
             status = resolver.AddPadV2();
             break;
         case tu_AddPCAN:
-            status = resolver.AddPCAN();
+            // status = resolver.AddPCAN();
             break;
         case tu_AddPrelu:
             status = resolver.AddPrelu();
@@ -444,7 +443,7 @@ template <tu_Resolver_Operator... Resolver_Operators> class tflite_use
             status = resolver.AddResizeNearestNeighbor();
             break;
         case tu_AddRfft:
-            status = resolver.AddRfft();
+            //  status = resolver.AddRfft();
             break;
         case tu_AddRound:
             status = resolver.AddRound();
@@ -495,7 +494,7 @@ template <tu_Resolver_Operator... Resolver_Operators> class tflite_use
             status = resolver.AddStridedSlice();
             break;
         case tu_AddStacker:
-            status = resolver.AddStacker();
+            //  status = resolver.AddStacker();
             break;
         case tu_AddSub:
             status = resolver.AddSub();
@@ -528,7 +527,7 @@ template <tu_Resolver_Operator... Resolver_Operators> class tflite_use
             status = resolver.AddWhile();
             break;
         case tu_AddWindow:
-            status = resolver.AddWindow();
+            // status = resolver.AddWindow();
             break;
         case tu_AddZerosLike:
             status = resolver.AddZerosLike();
