@@ -41,3 +41,5 @@ Replace it with the following
 FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 480K
 ```
 This slows down the program, but there really isn't a better way until wch's big resource chip comes along.
+
+<strong>warning</strong>: I've taken care of all the above caveats, and all the routines compile fine!

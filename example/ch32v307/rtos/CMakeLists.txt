@@ -13,3 +13,4 @@ set(CMAKE_C_STANDARD 11)
 include(${WCH_SDK_PATH}/wch_init.cmake)
 
 config_app(ch32v307_rtos)
+enable_rtos()

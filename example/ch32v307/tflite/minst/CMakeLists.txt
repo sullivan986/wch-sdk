@@ -13,27 +13,6 @@ set(CMAKE_C_STANDARD 11)
 include(${WCH_SDK_PATH}/wch_init.cmake)
 
 config_app(ch32v307_tflite_minst)
-
-target_compile_options(ch32v307_tflite_minst PRIVATE
--DTF_LITE_STATIC_MEMORY
--DTF_LITE_DISABLE_X86_NEON
--DTF_LITE_USE_GLOBAL_CMATH_FUNCTIONS
--DTF_LITE_USE_GLOBAL_MAX
--DTF_LITE_USE_GLOBAL_MIN
--Wno-error=double-promotion
--lprintfloat
-)
-
-target_link_libraries(ch32v307_tflite_minst PUBLIC
-    tflite
-    printfloat
-)
-
-target_link_libraries(ch32v307_tflite_minst PRIVATE -lm)
-
-get_target_property(MyLib_COMPILE_OPTIONS ch32v307_tflite_minst COMPILE_OPTIONS)
-if(MyLib_COMPILE_OPTIONS)
-  string(REPLACE "-fsingle-precision-constant" "" MyLib_COMPILE_OPTIONS "${MyLib_COMPILE_OPTIONS}")
-  #string(REPLACE "-mtune=native" "" MyLib_COMPILE_OPTIONS "${MyLib_COMPILE_OPTIONS}")
-  set_target_properties(ch32v307_tflite_minst PROPERTIES COMPILE_OPTIONS "${MyLib_COMPILE_OPTIONS}")
-endif()
+enable_rtos()
+enable_tflite()
+set_ram_and_flash(128 480)
