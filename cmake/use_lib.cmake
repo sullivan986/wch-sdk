@@ -20,12 +20,36 @@ target_sources(freertos PUBLIC
 add_library(Cherry_USB INTERFACE)
 
 
-# wasm
+# wasm has three rt: jit aot interpreter
 add_library(wasm_runtime INTERFACE)
+set(wamr_core_dir "${WCH_SDK_PATH}/libs/wasm-micro-runtime/core")
 target_include_directories(wasm_runtime INTERFACE
+    ${wamr_core_dir}
+    ${wamr_core_dir}/iwasm/common
+    ${wamr_core_dir}/iwasm/include
+    ${wamr_core_dir}/iwasm/interpreter
+    ${wamr_core_dir}/shared/mem-alloc
+    ${wamr_core_dir}/shared/mem-alloc/ems
+    ${wamr_core_dir}/shared/platform/include
+    ${wamr_core_dir}/shared/utils
+    ${WCH_SDK_PATH}/libs/utensil/wasm
+)
+file(GLOB wamr_all_srcs
+    "${wamr_core_dir}/iwasm/common/*.c"
+    "${wamr_core_dir}/iwasm/interpreter/*.c"
+    "${wamr_core_dir}/iwasm/libraries/libc-builtin/*.c"
+    "${wamr_core_dir}/shared/mem-alloc/*.c"
+    "${wamr_core_dir}/shared/mem-alloc/ems/*.c"
+    "${wamr_core_dir}/shared/utils/*.c"
+    "${wamr_core_dir}/shared/platform/common/freertos/*.c"
+    "${wamr_core_dir}/shared/platform/common/math/*.c"
+    "${wamr_core_dir}/shared/platform/common/math/*.c"
+    "${WCH_SDK_PATH}/libs/utensil/wasm/*.c"
 )
 target_sources(wasm_runtime INTERFACE
-    ${WCH_SDK_PATH}/libs/wasm-micro-runtime/core/iwasm/common/arch/invokeNative_riscv.S
+    ${wamr_all_srcs}
+    ${wamr_core_dir}/iwasm/common/arch/invokeNative_riscv.S
+    # ${wamr_core_dir}/iwasm/aot/arch/aot_reloc_riscv.c # disable aot, If we want to use aot on an embedded system, why don't we just upgrade the program?
 )
 
 
@@ -44,7 +68,7 @@ target_include_directories(tflite INTERFACE
     ${WCH_SDK_PATH}/libs/utensil/tflite
 )
 set(tflite_dir "${WCH_SDK_PATH}/libs/tflite-micro/tensorflow/lite")
-set(signal_dir "${WCH_SDK_PATH}/libs/tflite-micro/signal")
+set(tflite_signal_dir "${WCH_SDK_PATH}/libs/tflite-micro/signal")
 file(GLOB tflite_all_srcs
     "${tflite_dir}/core/c/common.cc"
     "${tflite_dir}/core/api/*.cc"
@@ -61,20 +85,20 @@ file(GLOB tflite_all_srcs
     "${tflite_dir}/micro/arena_allocator/*.cc"
     "${tflite_dir}/schema/*.cc"
     
-    "${signal_dir}/micro/kernels/*.c"
-    "${signal_dir}/micro/kernels/*.cc"
-    "${signal_dir}/src/*.c"
-    "${signal_dir}/src/*.cc"
-    "${signal_dir}/src/kiss_fft_wrappers/*.cc"
-    "${signal_dir}/src/tensorflow_core/kernels/*.cc"
-    "${signal_dir}/src/tensorflow_core/ops/*.cc"
+    "${tflite_signal_dir}/micro/kernels/*.c"
+    "${tflite_signal_dir}/micro/kernels/*.cc"
+    "${tflite_signal_dir}/src/*.c"
+    "${tflite_signal_dir}/src/*.cc"
+    "${tflite_signal_dir}/src/kiss_fft_wrappers/*.cc"
+    "${tflite_signal_dir}/src/tensorflow_core/kernels/*.cc"
+    "${tflite_signal_dir}/src/tensorflow_core/ops/*.cc"
 )
 file(GLOB will_remove_src 
     "${tflite_dir}/micro/*_test.cc"
     "${tflite_dir}/micro/kernels/*_test.cc"
     "${tflite_dir}/micro/memory_planner/*_test.cc"
     "${tflite_dir}/micro/arena_allocator/*_test.cc"
-    "${signal_dir}/micro/kernels/*_test.cc"
+    "${tflite_signal_dir}/micro/kernels/*_test.cc"
 )
 list(REMOVE_ITEM tflite_all_srcs
             ${will_remove_src}
@@ -130,3 +154,30 @@ function(enable_tflite)
         set_target_properties(${CMAKE_CURRENT_PROJECT_PARAM} PROPERTIES COMPILE_OPTIONS "${MyLib_COMPILE_OPTIONS}")
     endif()
 endfunction()
+
+# function(enable_wasm)
+#     target_compile_options(${CMAKE_CURRENT_PROJECT_PARAM} PRIVATE
+#         -DBH_MALLOC=wasm_runtime_malloc
+#         -DBH_FREE=wasm_runtime_free
+#         -DBUILD_TARGET_RISCV32_ILP32
+#         -DWASM_ENABLE_GLOBAL_HEAP_POOL=1
+#         -DWASM_GLOBAL_HEAP_SIZE=65536 # runtime stack size 64kb
+#         -DWASM_ENABLE_INTERP=1
+#         -DWASM_ENABLE_LIBC_BUILTIN=1
+#         -DWAMR_BUILD_PLATFORM=WCH
+#     )
+#     # set (WAMR_BUILD_PLATFORM "wch")
+#     # set (WAMR_BUILD_TARGET "RISCV32_ILP32")
+#     # set (WAMR_BUILD_INTERP 1)
+#     # set (WAMR_BUILD_LIBC_BUILTIN 1)
+#     # set (WAMR_BUILD_LIBC_WASI 1)
+#     # set (WAMR_BUILD_FAST_INTERP 0)
+#     # set (WAMR_BUILD_GLOBAL_HEAP_POOL 1)
+#     # set (WAMR_BUILD_GLOBAL_HEAP_SIZE 65536) # 64 KB
+#     # set (WAMR_BUILD_AOT 0)
+#     # set (WAMR_ROOT_DIR ${WCH_SDK_PATH}/libs/wasm-micro-runtime)
+#     #set (SHARED_PLATFORM_CONFIG ${WCH_SDK_PATH}/libs/utensil/wasm/shared_platform.cmake)
+#     #include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
+#     #target_sources(${CMAKE_CURRENT_PROJECT_PARAM} PRIVATE ${WAMR_RUNTIME_LIB_SOURCE})
+#     target_link_libraries(${CMAKE_CURRENT_PROJECT_PARAM} PUBLIC wasm_runtime)
+# endfunction(enable_wasm)
