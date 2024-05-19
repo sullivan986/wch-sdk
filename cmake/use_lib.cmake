@@ -32,59 +32,55 @@ target_sources(wasm_runtime INTERFACE
 # tflite
 add_library(tflite INTERFACE)
 target_include_directories(tflite INTERFACE
-    ${WCH_SDK_PATH}/libs/esp-tflite-micro/
+    #${WCH_SDK_PATH}/libs/esp-tflite-micro/
+    ${WCH_SDK_PATH}/libs/tflite-micro/
+    ${WCH_SDK_PATH}/libs/tflite-micro/signal/micro/kernels
+    ${WCH_SDK_PATH}/libs/tflite-micro/signal/src
+    ${WCH_SDK_PATH}/libs/tflite-micro/signal/src/kiss_fft_wrappers
     ${WCH_SDK_PATH}/libs/esp-tflite-micro/third_party/gemmlowp
     ${WCH_SDK_PATH}/libs/esp-tflite-micro/third_party/flatbuffers/include
     ${WCH_SDK_PATH}/libs/esp-tflite-micro/third_party/ruy
     ${WCH_SDK_PATH}/libs/esp-tflite-micro/third_party/kissfft
-    ${WCH_SDK_PATH}/libs/esp-tflite-micro/signal/micro/kernels
-    ${WCH_SDK_PATH}/libs/esp-tflite-micro/signal/src
-    ${WCH_SDK_PATH}/libs/esp-tflite-micro/signal/src/kiss_fft_wrappers
     ${WCH_SDK_PATH}/libs/utensil/tflite
 )
-file(GLOB_RECURSE tflite_sources 
-"${WCH_SDK_PATH}/libs/esp-tflite-micro/tensorflow/*.c" 
-"${WCH_SDK_PATH}/libs/esp-tflite-micro/tensorflow/*.cc"
-"${WCH_SDK_PATH}/libs/esp-tflite-micro/tensorflow/*.cpp") 
-# set(tflite_dir "${CMAKE_CURRENT_SOURCE_DIR}/tensorflow/lite")
-# set(signal_dir "${CMAKE_CURRENT_SOURCE_DIR}/signal")
-# set(tfmicro_dir "${tflite_dir}/micro")
-# set(tfmicro_frontend_dir "${tflite_dir}/experimental/microfrontend/lib")
-# set(tfmicro_kernels_dir "${tfmicro_dir}/kernels")
-# file(GLOB srcs_micro
-#           "${tfmicro_dir}/*.cc"
-#           "${tfmicro_dir}/*.c")
-# file(GLOB src_micro_frontend
-#           "${tfmicro_frontend_dir}/*.c"
-#           "${tfmicro_frontend_dir}/*.cc")
-# file(GLOB srcs_tflite_bridge
-#           "${tfmicro_dir}/tflite_bridge/*.c"
-#           "${tfmicro_dir}/tflite_bridge/*.cc")
-# file(GLOB srcs_kernels
-#           "${tfmicro_kernels_dir}/*.c"
-#           "${tfmicro_kernels_dir}/*.cc")
-# file(GLOB signal_micro_kernels
-#           "${signal_dir}/micro/kernels/*.c"
-#           "${signal_dir}/micro/kernels/*.cc")
-# file(GLOB signal_src
-#           "${signal_dir}/src/*.c"
-#           "${signal_dir}/src/*.cc")
-# set(signal_srcs
-#           "${signal_micro_kernels}"
-#           "${signal_src}"
-#           "${signal_dir}/src/kiss_fft_wrappers/kiss_fft_float.cc"
-#           "${signal_dir}/src/kiss_fft_wrappers/kiss_fft_int16.cc"
-#           "${signal_dir}/src/kiss_fft_wrappers/kiss_fft_int32.cc")
-list(REMOVE_ITEM tflite_sources
-          "${WCH_SDK_PATH}/libs/esp-tflite-micro/tensorflow/lite/micro/kernels/esp_nn/add.cc"
-          "${WCH_SDK_PATH}/libs/esp-tflite-micro/tensorflow/lite/micro/kernels/esp_nn/conv.cc"
-          "${WCH_SDK_PATH}/libs/esp-tflite-micro/tensorflow/lite/micro/kernels/esp_nn/depthwise_conv.cc"
-          "${WCH_SDK_PATH}/libs/esp-tflite-micro/tensorflow/lite/micro/kernels/esp_nn/fully_connected.cc"
-          "${WCH_SDK_PATH}/libs/esp-tflite-micro/tensorflow/lite/micro/kernels/esp_nn/mul.cc"
-          "${WCH_SDK_PATH}/libs/esp-tflite-micro/tensorflow/lite/micro/kernels/esp_nn/pooling.cc"
-          "${WCH_SDK_PATH}/libs/esp-tflite-micro/tensorflow/lite/micro/kernels/esp_nn/softmax.cc")
+set(tflite_dir "${WCH_SDK_PATH}/libs/tflite-micro/tensorflow/lite")
+set(signal_dir "${WCH_SDK_PATH}/libs/tflite-micro/signal")
+file(GLOB tflite_all_srcs
+    "${tflite_dir}/core/c/common.cc"
+    "${tflite_dir}/core/api/*.cc"
+    "${tflite_dir}/kernels/*.cc"
+    "${tflite_dir}/kernels/*/*.cc"
+    "${tflite_dir}/kernels/*/*/*.cc"
+    "${tflite_dir}/micro/*.c"
+    "${tflite_dir}/micro/*.cc"
+    "${tflite_dir}/micro/tflite_bridge/*.c"
+    "${tflite_dir}/micro/tflite_bridge/*.cc"
+    "${tflite_dir}/micro/kernels/*.c"
+    "${tflite_dir}/micro/kernels/*.cc"
+    "${tflite_dir}/micro/memory_planner/*.cc"
+    "${tflite_dir}/micro/arena_allocator/*.cc"
+    "${tflite_dir}/schema/*.cc"
+    
+    "${signal_dir}/micro/kernels/*.c"
+    "${signal_dir}/micro/kernels/*.cc"
+    "${signal_dir}/src/*.c"
+    "${signal_dir}/src/*.cc"
+    "${signal_dir}/src/kiss_fft_wrappers/*.cc"
+    "${signal_dir}/src/tensorflow_core/kernels/*.cc"
+    "${signal_dir}/src/tensorflow_core/ops/*.cc"
+)
+file(GLOB will_remove_src 
+    "${tflite_dir}/micro/*_test.cc"
+    "${tflite_dir}/micro/kernels/*_test.cc"
+    "${tflite_dir}/micro/memory_planner/*_test.cc"
+    "${tflite_dir}/micro/arena_allocator/*_test.cc"
+    "${signal_dir}/micro/kernels/*_test.cc"
+)
+list(REMOVE_ITEM tflite_all_srcs
+            ${will_remove_src}
+          )
 target_sources(tflite INTERFACE
-    ${tflite_sources}
+    ${tflite_all_srcs}
 )
 
 # utensil
@@ -107,8 +103,8 @@ function(enable_rtos STACK_size)
             TARGET ${CMAKE_CURRENT_PROJECT_PARAM} PRE_BUILD
             COMMAND rm ${CMAKE_BINARY_DIR}/tmp_file/Link.ld
             COMMAND cp ${WCH_SDK_PATH}/hal/CH32V307/LinkRtos.ld ${CMAKE_BINARY_DIR}/tmp_file/Link.ld
-            #COMMAND cp ${WCH_SDK_PATH}/hal/CH32V307/FreeRTOSConfig.h ${CMAKE_BINARY_DIR}/tmp_file/FreeRTOSConfig.h
-            #COMMAND sed -i '16c ##define configTOTAL_HEAP_SIZE ((size_t)(${stack_size} * 1024))' ${CMAKE_BINARY_DIR}/tmp_file/FreeRTOSConfig.h
+            COMMAND cp ${WCH_SDK_PATH}/hal/CH32V307/FreeRTOSConfig.h.in ${CMAKE_BINARY_DIR}/tmp_file/FreeRTOSConfig.h
+            COMMAND sed -i "s/@STACK_size@/${STACK_size}/g" ${CMAKE_BINARY_DIR}/tmp_file/FreeRTOSConfig.h
         )
     elseif(CHIP_NAME STREQUAL "ch58x")
         # TODO
@@ -118,7 +114,7 @@ endfunction()
 
 function(enable_tflite)
     target_compile_options(${CMAKE_CURRENT_PROJECT_PARAM} PRIVATE
-        -DTF_LITE_STATIC_MEMORY
+        #-DTF_LITE_STATIC_MEMORY
         -DTF_LITE_DISABLE_X86_NEON
         -DTF_LITE_USE_GLOBAL_CMATH_FUNCTIONS
         -DTF_LITE_USE_GLOBAL_MAX
