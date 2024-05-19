@@ -13,6 +13,6 @@ set(CMAKE_C_STANDARD 11)
 include(${WCH_SDK_PATH}/wch_init.cmake)
 
 config_app(ch32v307_tflite_minst)
-enable_rtos()
+enable_rtos(10)
 enable_tflite()
 set_ram_and_flash(128 480)

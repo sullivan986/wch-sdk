@@ -40,6 +40,7 @@ target_include_directories(tflite INTERFACE
     ${WCH_SDK_PATH}/libs/esp-tflite-micro/signal/micro/kernels
     ${WCH_SDK_PATH}/libs/esp-tflite-micro/signal/src
     ${WCH_SDK_PATH}/libs/esp-tflite-micro/signal/src/kiss_fft_wrappers
+    ${WCH_SDK_PATH}/libs/utensil/tflite
 )
 file(GLOB_RECURSE tflite_sources 
 "${WCH_SDK_PATH}/libs/esp-tflite-micro/tensorflow/*.c" 
@@ -93,16 +94,21 @@ target_include_directories(utensil INTERFACE
 )
 target_link_libraries(utensil INTERFACE
     Cherry_USB
-    tflite
 )
 
 
-function(enable_rtos)
-    if(CHIP_NAME STREQUAL "ch32v307")      
+function(enable_rtos STACK_size)
+    if(CHIP_NAME STREQUAL "ch32v307")
+        configure_file(
+            ${WCH_SDK_PATH}/hal/CH32V307/FreeRTOSConfig.h.in
+            ${CMAKE_BINARY_DIR}/tmp_file/FreeRTOSConfig.h 
+        )
         add_custom_command(
             TARGET ${CMAKE_CURRENT_PROJECT_PARAM} PRE_BUILD
             COMMAND rm ${CMAKE_BINARY_DIR}/tmp_file/Link.ld
             COMMAND cp ${WCH_SDK_PATH}/hal/CH32V307/LinkRtos.ld ${CMAKE_BINARY_DIR}/tmp_file/Link.ld
+            #COMMAND cp ${WCH_SDK_PATH}/hal/CH32V307/FreeRTOSConfig.h ${CMAKE_BINARY_DIR}/tmp_file/FreeRTOSConfig.h
+            #COMMAND sed -i '16c ##define configTOTAL_HEAP_SIZE ((size_t)(${stack_size} * 1024))' ${CMAKE_BINARY_DIR}/tmp_file/FreeRTOSConfig.h
         )
     elseif(CHIP_NAME STREQUAL "ch58x")
         # TODO

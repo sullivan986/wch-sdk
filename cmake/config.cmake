@@ -16,6 +16,7 @@ elseif(CHIP_NAME STREQUAL "ch32v307")
             ${APP_SRC}
         )
         target_include_directories(${param} PRIVATE
+            ${CMAKE_BINARY_DIR}/tmp_file
             ${WCH_SDK_PATH}/hal/CH32V307/include
             ${CMAKE_CURRENT_SOURCE_DIR}/include
         )
@@ -58,7 +59,8 @@ elseif(CHIP_NAME STREQUAL "ch32v307")
             -mabi=ilp32f 
             -flto
             -T ${CMAKE_BINARY_DIR}/tmp_file/Link.ld
-            -Wl,-Map,${param}.map 
+            -Wl,-Map,${param}.map
+            
         )
 
         set(HEX_FILE ${PROJECT_BINARY_DIR}/app.hex)
