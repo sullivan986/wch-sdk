@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <tensorflow/lite/micro/micro_interpreter.h>
 #include <tensorflow/lite/micro/micro_log.h>
@@ -160,19 +161,37 @@ template <tu_Resolver_Operator... Resolver_Operators> class tflite_use
             log_warinig("AllocateTensors error: %d", status);
             return;
         }
-
-        // 获取指向模型的输入和输出张量的指针
-        input = interpreter->input(0);
-        output = interpreter->output(0);
     }
 
-    template <typename Func> TfLiteTensor *run(Func func)
+    // 0 index input and out put
+    TfLitePtrUnion &run(std::function<void(TfLitePtrUnion)> func)
     {
-        func(input);
-
+        func(get_output_data(0));
         interpreter_calculate();
+        return get_input_data(0);
+    }
 
-        return output;
+    // for more parameterization
+    TfLiteTensor *run(std::function<void(TfLiteTensor *)> func)
+    {
+        func(interpreter->input(0));
+        interpreter_calculate();
+        return interpreter->output(0);
+    }
+
+    void run()
+    {
+        interpreter_calculate();
+    }
+
+    TfLitePtrUnion &get_input_data(size_t index)
+    {
+        return interpreter->input(index)->data;
+    }
+
+    TfLitePtrUnion &get_output_data(size_t index)
+    {
+        return interpreter->output(index)->data;
     }
 
   private:
@@ -187,10 +206,6 @@ template <tu_Resolver_Operator... Resolver_Operators> class tflite_use
     TfLiteStatus status;
     // buff
     std::vector<uint8_t> tensor_arena;
-    // 输入张量指针
-    TfLiteTensor *input;
-    // 输出张量指针
-    TfLiteTensor *output;
 
     constexpr void resolver_add_operator(tu_Resolver_Operator resolver_operator)
     {

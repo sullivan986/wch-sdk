@@ -1,7 +1,7 @@
 set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_SYSTEM_VERSION 1)
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
-
+set(WCH_SDK_PATH ${CMAKE_CURRENT_LIST_DIR})
 # toolchains setting
 if(NOT TOOLPATH)
     message(FATAL_ERROR "please set TOOLPATH for wch gcc")

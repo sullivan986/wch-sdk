@@ -10,7 +10,7 @@ project(ch32v307 C CXX ASM)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_C_STANDARD 11)
 
-include(${WCH_SDK_PATH}/wch_init.cmake)
+include(../../../../wch_init.cmake)
 
 config_app(ch32v307_tflite_minst)
 enable_rtos(10)
