@@ -1,9 +1,7 @@
 #ifndef UTENSIL_HPP
 #define UTENSIL_HPP
 
-#include "FreeRTOS.h"
 #include "debug.h"
-#include "task.h"
 #include <stdio.h>
 
 #define LOG_COLOR_RESET "\x1b[0m"
@@ -35,12 +33,6 @@
         printf("[%d] [%s] %s() [%s:%d]: " fmt "\r\n", xTaskGetTickCount() * portTICK_PERIOD_MS,                        \
                "\x1b[31mERROR" LOG_COLOR_RESET, __func__, __FILE__, __LINE__, ##__VA_ARGS__);                          \
     } while (0)
-
-// control
-static inline void task_sleep_ms(TickType_t ms)
-{
-    vTaskDelay(ms / portTICK_PERIOD_MS);
-}
 
 // usb-print
 extern "C"
@@ -119,5 +111,13 @@ extern "C"
         return millis_count;
     }
 }
+
+#ifdef USE_UTENSIL_FREERTOS
+#include <utensil_rtos.hpp>
+#endif
+
+#ifdef USE_UTENSIL_TFLITE
+#include <utensil_tflite.hpp>
+#endif
 
 #endif

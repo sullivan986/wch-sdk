@@ -2,85 +2,65 @@ include(${WCH_SDK_PATH}/cmake/chip.cmake)
 include(${WCH_SDK_PATH}/cmake/use_lib.cmake)
 
 
-function(config_app1 app_name chip_name)
+function(config_app app_name chip_name)
     set(CMAKE_CURRENT_PROJECT_PARAM "${app_name}" CACHE STRING INTERNAL FORCE)
-    string(FIND ${ARGN} enable_rtos APP_ENABLE_RTOS)
-    string(FIND ${ARGN} enable_cpp APP_ENABLE_CPP)
-    if(NOT ${APP_ENABLE_RTOS} EQUAL -1)
-        message("--------------------->")
-    endif()
+
+    string(FIND "${ARGN}" "enable_rtos" APP_ENABLE_RTOS)
+    string(FIND "${ARGN}" "enable_cpp" APP_ENABLE_CPP)
+    string(FIND "${ARGN}" "enable_printf_sdi" APP_ENABLE_PRINT_SDI)
+    string(FIND "${ARGN}" "enable_printf_uart1" APP_ENABLE_PRINT_UART1)
+    string(FIND "${ARGN}" "enable_printf_uart2" APP_ENABLE_PRINT_UART2)
+    string(FIND "${ARGN}" "enable_printf_uart3" APP_ENABLE_PRINT_UART3)
+    string(FIND "${ARGN}" "enable_tflite" APP_ENABLE_TFLITE)
+
+    string(FIND "${ARGN}" "r32k_f288k" APP_RAM32K_FLASH288K)
+    string(FIND "${ARGN}" "r64k_f256k" APP_RAM64K_FLASH256K)
+    string(FIND "${ARGN}" "r96k_f224k" APP_RAM96K_FLASH224K)
+    string(FIND "${ARGN}" "r128k_f192k" APP_RAM128K_FLASH192K)
+    string(FIND "${ARGN}" "r128k_f480k" APP_RAM128K_FLASH480K)
+    
     add_executable(${app_name})
-    aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src APP_SRC)
-    if(CHIP_NAME STREQUAL "ch32v307")
-        set(APP_HAL_PATH libs/ch32v307/EVT/EXAM)
-        file(GLOB APP_ALL_SRC
-            "${APP_HAL_PATH}/SRC/Core/*.c"
-            "${APP_HAL_PATH}/SRC/Debug/*.c"
-            "${APP_HAL_PATH}/SRC/Peripheral/src/*.c"
-            "${APP_HAL_PATH}/SRC/Core/*.c"
-        )
-    
-    elseif(CHIP_NAME STREQUAL "ch59x")
-    endif()
-    
-endfunction()
+    aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src APP_ALL_SRC_0)
+    aux_source_directory(${CMAKE_BINARY_DIR}/tmp_file APP_ALL_SRC_1)
+    target_include_directories(${app_name} PRIVATE
+        ${CMAKE_BINARY_DIR}/tmp_file
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    target_sources(${app_name} PRIVATE
+        ${APP_ALL_SRC_0}
+        ${APP_ALL_SRC_1}
+    )
 
+    if(chip_name STREQUAL "ch32v307")
+        set(APP_HAL_PATH ${WCH_SDK_PATH}/libs/ch32v307/EVT/EXAM)
+        aux_source_directory(${APP_HAL_PATH}/SRC/Peripheral/src APP_ALL_SRC_2)
+        target_include_directories(${app_name} PRIVATE
+            ${APP_HAL_PATH}/SRC/Peripheral/inc
+            ${APP_HAL_PATH}/SRC/Core
+        )
 
-if(NOT CHIP_NAME)
-    message("testtesttest")
-elseif(CHIP_NAME STREQUAL "ch32v307")
-    aux_source_directory(${WCH_SDK_PATH}/hal/CH32V307/src FILE_SRC)
-    function(config_app param)
-        string(FIND "${ARGN}" "enable_rtos" APP_ENABLE_RTOS)
-        if(NOT ${APP_ENABLE_RTOS} EQUAL -1)
-            message("--------------------->")
-        endif()
-        
-        set(CMAKE_CURRENT_PROJECT_PARAM "${param}" CACHE STRING INTERNAL FORCE)
-        # string(FIND ${ARGN} enable_rtos SDK_CONFIG_ENABLE_RTOS)
-        # current app source file
-        add_executable(${param})
-        aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src APP_SRC)
-        aux_source_directory(${CMAKE_BINARY_DIR}/tmp_file APP_TMP_SRC)
-        target_sources(${param} PRIVATE
-            ${FILE_SRC}
-            ${WCH_SDK_PATH}/hal/CH32V307/startup_ch32v30x_D8C.S
-            ${APP_SRC}
-            ${APP_TMP_SRC}
+        target_sources(${app_name} PRIVATE
+            ${APP_ALL_SRC_2}
+            ${APP_HAL_PATH}/SRC/Core/core_riscv.c
+            ${CMAKE_BINARY_DIR}/tmp_file/startup_ch32v30x_D8C.S
         )
-        target_include_directories(${param} PRIVATE
-            ${CMAKE_BINARY_DIR}/tmp_file
-            ${WCH_SDK_PATH}/hal/CH32V307/include
-            ${CMAKE_CURRENT_SOURCE_DIR}/include
+
+        target_compile_options(${app_name} PRIVATE
+        -march=rv32imafcxw
+        -mabi=ilp32f
+        -msmall-data-limit=8
+        -mno-save-restore
+        -fmessage-length=0
+        -fsigned-char
+        -ffunction-sections
+        -fdata-sections
+        -fsingle-precision-constant
+        -Wunused
+        -Wuninitialized
+        -lm
         )
-        target_compile_options(${param}  PRIVATE 
-            -march=rv32imafcxw
-            -mabi=ilp32f
-            -msmall-data-limit=8
-            -mno-save-restore
-            -fmessage-length=0
-            -fsigned-char
-            -ffunction-sections
-            -fdata-sections
-            -fsingle-precision-constant
-            -Wunused
-            -Wuninitialized
-            -lm
-            $<$<COMPILE_LANGUAGE:CXX>:
-                ${common_flags} 
-                #-fno-rtti 
-                -fno-exceptions
-                -fno-threadsafe-statics
-                -Werror 
-                -Wno-return-type 
-                -Wno-unused-function
-                -Wno-volatile  
-                -Wno-deprecated-declarations 
-                -Wno-unused-variable
-                -Wno-strict-aliasing>
-                #-fpermissive
-        )
-        target_link_options(${param} PRIVATE
+
+        target_link_options(${app_name} PRIVATE
             -nostartfiles 
             -Xlinker --gc-sections  
             -Wl,--print-memory-usage
@@ -92,80 +72,122 @@ elseif(CHIP_NAME STREQUAL "ch32v307")
             -mabi=ilp32f 
             -flto
             -T ${CMAKE_BINARY_DIR}/tmp_file/Link.ld
-            -Wl,-Map,${param}.map
-            
+            -Wl,-Map,${app_name}.map
         )
 
-        set(HEX_FILE ${PROJECT_BINARY_DIR}/app.hex)
-        set(BIN_FILE ${PROJECT_BINARY_DIR}/app.bin)
+        configure_file(
+            ${WCH_SDK_PATH}/configure/ch32v307/Link.ld
+            ${CMAKE_BINARY_DIR}/tmp_file/Link.ld
+            COPYONLY
+        )
+
+        configure_file(
+            ${APP_HAL_PATH}/SRC/Startup/startup_ch32v30x_D8C.S
+            ${CMAKE_BINARY_DIR}/tmp_file/startup_ch32v30x_D8C.S
+            COPYONLY
+        )
+
+        configure_file(
+            ${APP_HAL_PATH}/SRC/Debug/debug.h
+            ${CMAKE_BINARY_DIR}/tmp_file/debug.h
+            COPYONLY
+        )
+
+        configure_file(
+            ${APP_HAL_PATH}/SRC/Debug/debug.c
+            ${CMAKE_BINARY_DIR}/tmp_file/debug.c
+            COPYONLY
+        )
+
+        configure_file(
+            ${WCH_SDK_PATH}/configure/ch32v307/ch32v30x_conf.h
+            ${CMAKE_BINARY_DIR}/tmp_file/ch32v30x_conf.h
+            COPYONLY
+        )
+
+        configure_file(
+            ${WCH_SDK_PATH}/configure/ch32v307/ch32v30x_it.h
+            ${CMAKE_BINARY_DIR}/tmp_file/ch32v30x_it.h
+            COPYONLY
+        )
+
+        configure_file(
+            ${WCH_SDK_PATH}/configure/ch32v307/ch32v30x_it.c
+            ${CMAKE_BINARY_DIR}/tmp_file/ch32v30x_it.c
+            COPYONLY
+        )
+
+        configure_file(
+            ${WCH_SDK_PATH}/configure/ch32v307/system_ch32v30x.h
+            ${CMAKE_BINARY_DIR}/tmp_file/system_ch32v30x.h
+            COPYONLY
+        )
+
+        configure_file(
+            ${WCH_SDK_PATH}/configure/ch32v307/system_ch32v30x.c
+            ${CMAKE_BINARY_DIR}/tmp_file/system_ch32v30x.c
+            COPYONLY
+        )
+
         add_custom_command(
-            TARGET ${param} PRE_BUILD
-           # COMMAND rm -r -f ${CMAKE_BINARY_DIR}/tmp_file
+            TARGET ${app_name} PRE_BUILD
+            # COMMAND rm -r -f ${CMAKE_BINARY_DIR}/tmp_file
             COMMAND mkdir -p ${CMAKE_BINARY_DIR}/tmp_file
-            COMMAND cp ${WCH_SDK_PATH}/hal/CH32V307/Link.ld ${CMAKE_BINARY_DIR}/tmp_file
         )
-        add_custom_command(
-            TARGET ${param} POST_BUILD
-            COMMAND ${CMAKE_OBJCOPY} -Oihex $<TARGET_FILE:${param}> ${HEX_FILE}
-            COMMAND ${CMAKE_OBJCOPY} -Obinary $<TARGET_FILE:${param}> ${BIN_FILE}
-        )
-        target_link_libraries(${param} PUBLIC
-            utensil
-        )
-    endfunction()
-    
-elseif(CHIP_NAME STREQUAL "ch58x")
-    include_directories(${WCH_SDK_PATH}/hal/CH58X/include)
-    aux_source_directory(${WCH_SDK_PATH}/hal/CH58X/src FILE_SRC)
-    function(config_app param)
-        # get ARGN param
-
-        # current app source file
-        add_executable(${param})
-        aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src APP_SRC)
-        target_sources(${param} PRIVATE 
-            ${FILE_SRC}
-            ${WCH_SDK_PATH}/hal/CH58X/startup_CH583.S
-            ${APP_SRC}
-        )
-        target_include_directories(${param} PRIVATE
-            ${WCH_SDK_PATH}/hal/CH58X/include
-            ${CMAKE_CURRENT_SOURCE_DIR}/include
-        )
-        target_compile_options(${param}  PRIVATE
-            -march=rv32imac
-            -mabi=ilp32
-            -mcmodel=medany
-            -msmall-data-limit=8
-            -mno-save-restore
-            -fmessage-length=0
-            -fsigned-char 
-            -ffunction-sections 
-            -fdata-sections 
-            -fno-common
-        )
-        target_link_options(${param} PRIVATE
-            -nostartfiles 
-            -Xlinker --gc-sections  
-            -Wl,--print-memory-usage
-            # -Wl,-Map,${PROJECT_NAME}.map 
-            --specs=nano.specs 
-            --specs=nosys.specs
-            -T ${WCH_SDK_PATH}/hal/CH58X/Link.ld
-            -Wl,-Map,app.map 
-        )
+        
         set(HEX_FILE ${PROJECT_BINARY_DIR}/app.hex)
         set(BIN_FILE ${PROJECT_BINARY_DIR}/app.bin)
         add_custom_command(
-                TARGET ${param} POST_BUILD
-                COMMAND ${CMAKE_OBJCOPY} -Oihex $<TARGET_FILE:${param}> ${HEX_FILE}
-                COMMAND ${CMAKE_OBJCOPY} -Obinary $<TARGET_FILE:${param}> ${BIN_FILE}
-        )        
-        target_link_libraries(${param} 
-            ${WCH_SDK_PATH}/hal/CH58X/lib/LIBCH58xBLE.a
-            ${WCH_SDK_PATH}/hal/CH58X/lib/libISP583.a
-            ${WCH_SDK_PATH}/hal/CH58X/lib/libRV3UFI.a
-            ${WCH_SDK_PATH}/hal/CH58X/lib/LIBWCHLWNS.a
+            TARGET ${app_name} POST_BUILD
+            COMMAND ${CMAKE_OBJCOPY} -Oihex $<TARGET_FILE:${app_name}> ${HEX_FILE}
+            COMMAND ${CMAKE_OBJCOPY} -Obinary $<TARGET_FILE:${app_name}> ${BIN_FILE}
         )
-    endfunction()
-endif()
+
+        if(NOT ${APP_ENABLE_RTOS} EQUAL -1) #enable_rtos must come before enable_cpp because enable_rtos affects startup_ch32v30x_D8C.S.
+            enable_rtos(${app_name} ${chip_name})
+        endif()
+
+        if(NOT ${APP_ENABLE_CPP} EQUAL -1)
+            enable_cpp(${app_name} ${chip_name})
+        endif()
+
+        if(NOT ${APP_ENABLE_PRINT_SDI} EQUAL -1)
+            enable_printf(${app_name} ${chip_name} sdi)
+        endif()
+
+        if(NOT ${APP_ENABLE_TFLITE} EQUAL -1)
+            enable_tflite(${app_name})
+        endif()
+
+        # cionfig ram and flash size
+        if(NOT ${APP_RAM32K_FLASH288K} EQUAL -1)
+            set_ram_and_flash(${app_name} ${chip_name} 32 288)
+        endif()
+
+        if(NOT ${APP_RAM64K_FLASH256K} EQUAL -1)
+            set_ram_and_flash(${app_name} ${chip_name} 64 256)
+        endif()
+
+        if(NOT ${APP_RAM96K_FLASH224K} EQUAL -1)
+            set_ram_and_flash(${app_name} ${chip_name} 96 224)
+        endif()
+
+        if(NOT ${APP_RAM128K_FLASH192K} EQUAL -1)
+            set_ram_and_flash(${app_name} ${chip_name} 128 192)
+        endif()
+
+        if(NOT ${APP_RAM128K_FLASH480K} EQUAL -1)
+            set_ram_and_flash(${app_name} ${chip_name} 128 480)
+        endif()
+
+        target_link_libraries(${app_name} PUBLIC
+            utensil
+            printfloat
+        )
+    
+    elseif(chip_name STREQUAL "ch59x")
+    else()
+        message(FATAL_ERROR "chip_name:${chip_name} is not support")
+    endif()
+    
+endfunction()

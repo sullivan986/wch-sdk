@@ -1,19 +1,15 @@
 # freertos for ch32v307
 add_library(freertos INTERFACE)
 set(LIB_FREERTOS_PATH ${WCH_SDK_PATH}/libs/ch32v307/EVT/EXAM/FreeRTOS/FreeRTOS_Core/FreeRTOS)
-aux_source_directory(${LIB_FREERTOS_PATH} lib_freertos_source)
+aux_source_directory(${LIB_FREERTOS_PATH} LIB_FREERTOS_SRC)
 target_include_directories(freertos INTERFACE
     ${LIB_FREERTOS_PATH}/include
     ${LIB_FREERTOS_PATH}/portable/GCC/RISC-V
+    ${WCH_SDK_PATH}/libs/utensil/freertos
     #${LIB_FREERTOS_PATH}/portable/GCC/RISC-V/chip_specific_extensions/RV32I_PFIC_no_extensions
 )
-configure_file(
-    ${LIB_FREERTOS_PATH}/portable/GCC/RISC-V/chip_specific_extensions/RV32I_PFIC_no_extensions/freertos_risc_v_chip_specific_extensions.h
-    ${CMAKE_BINARY_DIR}/tmp_file/freertos_risc_v_chip_specific_extensions.h
-)
-target_sources(freertos PUBLIC
-    ${lib_freertos_source}
-    #${WCH_SDK_PATH}/libs/FreeRTOS/portable/Common/mpu_wrappers.c
+target_sources(freertos INTERFACE
+    ${LIB_FREERTOS_SRC}
     ${LIB_FREERTOS_PATH}/portable/MemMang/heap_4.c 
     ${LIB_FREERTOS_PATH}/portable/GCC/RISC-V/port.c
     ${LIB_FREERTOS_PATH}/portable/GCC/RISC-V/portASM.S
@@ -22,7 +18,7 @@ target_sources(freertos PUBLIC
 # cherry USB
 add_library(Cherry_USB INTERFACE)
 
-# wasm has three rt: jit aot interpreter
+# wasm has three rt: jit aot interpreter, interpreter has the smallest volume, so use it.
 add_library(wasm_runtime INTERFACE)
 set(wamr_core_dir "${WCH_SDK_PATH}/libs/wasm-micro-runtime/core")
 target_include_directories(wasm_runtime INTERFACE
@@ -71,7 +67,30 @@ target_include_directories(tflite INTERFACE
 )
 set(tflite_dir "${WCH_SDK_PATH}/libs/tflite-micro/tensorflow/lite")
 set(tflite_signal_dir "${WCH_SDK_PATH}/libs/tflite-micro/signal")
- 
+file(GLOB tflite_all_srcs
+"${tflite_dir}/core/c/common.cc"
+"${tflite_dir}/core/api/*.cc"
+"${tflite_dir}/kernels/*.cc"
+"${tflite_dir}/kernels/*/*.cc"
+"${tflite_dir}/kernels/*/*/*.cc"
+"${tflite_dir}/micro/*.c"
+"${tflite_dir}/micro/*.cc"
+"${tflite_dir}/micro/tflite_bridge/*.c"
+"${tflite_dir}/micro/tflite_bridge/*.cc"
+"${tflite_dir}/micro/kernels/*.c"
+"${tflite_dir}/micro/kernels/*.cc"
+"${tflite_dir}/micro/memory_planner/*.cc"
+"${tflite_dir}/micro/arena_allocator/*.cc"
+"${tflite_dir}/schema/*.cc"
+
+"${tflite_signal_dir}/micro/kernels/*.c"
+"${tflite_signal_dir}/micro/kernels/*.cc"
+"${tflite_signal_dir}/src/*.c"
+"${tflite_signal_dir}/src/*.cc"
+"${tflite_signal_dir}/src/kiss_fft_wrappers/*.cc"
+"${tflite_signal_dir}/src/tensorflow_core/kernels/*.cc"
+"${tflite_signal_dir}/src/tensorflow_core/ops/*.cc"
+)
 file(GLOB will_remove_src 
     "${tflite_dir}/micro/*_test.cc"
     "${tflite_dir}/micro/kernels/*_test.cc"
@@ -96,51 +115,54 @@ target_link_libraries(utensil INTERFACE
 )
 
 
-function(enable_rtos STACK_size)
-    if(CHIP_NAME STREQUAL "ch32v307")
-        # configure_file(
-        #     ${WCH_SDK_PATH}/hal/CH32V307/config/FreeRTOSConfig.h.in
-        #     ${CMAKE_BINARY_DIR}/tmp_file/FreeRTOSConfig.h 
-        # )
+function(enable_rtos app_name chip_name)
+    if(${chip_name} STREQUAL "ch32v307")
         configure_file(
             ${LIB_FREERTOS_PATH}/../User/FreeRTOSConfig.h
             ${CMAKE_BINARY_DIR}/tmp_file/FreeRTOSConfig.h
             COPYONLY
         )
-        add_custom_command(
-            TARGET ${CMAKE_CURRENT_PROJECT_PARAM} PRE_BUILD
-            COMMAND rm ${CMAKE_BINARY_DIR}/tmp_file/Link.ld
-            COMMAND cp ${WCH_SDK_PATH}/hal/CH32V307/config/LinkRtos.ld ${CMAKE_BINARY_DIR}/tmp_file/Link.ld
-            COMMAND sed -i 's/define ARCH_FPU 0/define ARCH_FPU 1/g' ${CMAKE_BINARY_DIR}/tmp_file/freertos_risc_v_chip_specific_extensions.h
-            # COMMAND cp ${WCH_SDK_PATH}/hal/CH32V307/config/FreeRTOSConfig.h.in ${CMAKE_BINARY_DIR}/tmp_file/FreeRTOSConfig.h
-           # COMMAND sed -i "s/@STACK_size@/${STACK_size}/g" ${CMAKE_BINARY_DIR}/tmp_file/FreeRTOSConfig.h
+        configure_file(
+            ${LIB_FREERTOS_PATH}/portable/GCC/RISC-V/chip_specific_extensions/RV32I_PFIC_no_extensions/freertos_risc_v_chip_specific_extensions.h
+            ${CMAKE_BINARY_DIR}/tmp_file/freertos_risc_v_chip_specific_extensions.h
+            COPYONLY
         )
-    elseif(CHIP_NAME STREQUAL "ch59x")
+        add_custom_command(
+            TARGET ${app_name} PRE_BUILD
+            COMMAND rm -f ${CMAKE_BINARY_DIR}/tmp_file/Link.ld
+            COMMAND rm -f ${CMAKE_BINARY_DIR}/tmp_file/startup_ch32v30x_D8C.S
+            COMMAND cp ${WCH_SDK_PATH}/configure/ch32v307/LinkRtos.ld ${CMAKE_BINARY_DIR}/tmp_file/Link.ld
+            COMMAND cp ${LIB_FREERTOS_PATH}/../Startup/startup_ch32v30x_D8C.S ${CMAKE_BINARY_DIR}/tmp_file/startup_ch32v30x_D8C.S
+            COMMAND sed -i 's/define ARCH_FPU 0/define ARCH_FPU 1/g' ${CMAKE_BINARY_DIR}/tmp_file/freertos_risc_v_chip_specific_extensions.h
+        )
+    elseif(${chip_name} STREQUAL "ch59x")
         # TODO
     endif()
-    target_link_libraries(${CMAKE_CURRENT_PROJECT_PARAM} PUBLIC freertos)
+    target_link_libraries(${app_name} PUBLIC freertos)
+    add_compile_definitions(USE_UTENSIL_FREERTOS)
 endfunction()
 
-function(enable_tflite)
-    target_compile_options(${CMAKE_CURRENT_PROJECT_PARAM} PRIVATE
-        #-DTF_LITE_STATIC_MEMORY
-        -DTF_LITE_DISABLE_X86_NEON
-        -DTF_LITE_USE_GLOBAL_CMATH_FUNCTIONS
-        -DTF_LITE_USE_GLOBAL_MAX
-        -DTF_LITE_USE_GLOBAL_MIN
-        -Wno-error=double-promotion
-        -lprintfloat
+
+function(enable_tflite app_name)
+    add_compile_definitions(
+        TF_LITE_DISABLE_X86_NEON
+        TF_LITE_USE_GLOBAL_CMATH_FUNCTIONS
+        TF_LITE_USE_GLOBAL_MAX
+        TF_LITE_USE_GLOBAL_MIN
     )
-    target_link_libraries(${CMAKE_CURRENT_PROJECT_PARAM} PUBLIC tflite printfloat)
-    #target_link_libraries(${CMAKE_CURRENT_PROJECT_PARAM} PRIVATE -lm)
-    get_target_property(MyLib_COMPILE_OPTIONS ${CMAKE_CURRENT_PROJECT_PARAM} COMPILE_OPTIONS)
+    target_compile_options(${app_name} PRIVATE
+        -Wno-error=double-promotion
+    )
+    get_target_property(MyLib_COMPILE_OPTIONS ${app_name} COMPILE_OPTIONS)
     if(MyLib_COMPILE_OPTIONS)
         string(REPLACE "-fsingle-precision-constant" "" MyLib_COMPILE_OPTIONS "${MyLib_COMPILE_OPTIONS}")
-        set_target_properties(${CMAKE_CURRENT_PROJECT_PARAM} PROPERTIES COMPILE_OPTIONS "${MyLib_COMPILE_OPTIONS}")
+        set_target_properties(${app_name} PROPERTIES COMPILE_OPTIONS "${MyLib_COMPILE_OPTIONS}")
     endif()
+    target_link_libraries(${app_name} PUBLIC tflite printfloat)
+    add_compile_definitions(USE_UTENSIL_TFLITE)
 endfunction()
 
-# function(enable_wasm)
+# function(enable_wasm app_name)
 #     target_compile_options(${CMAKE_CURRENT_PROJECT_PARAM} PRIVATE
 #         -DBH_MALLOC=wasm_runtime_malloc
 #         -DBH_FREE=wasm_runtime_free

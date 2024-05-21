@@ -3,14 +3,10 @@ cmake_minimum_required(VERSION 3.20)
 # 工具链设置
 set(TOOLPATH  /PATH/TO/GCC/BIN)
 set(WCH_SDK_PATH ../../../..)
-set(CHIP_NAME "ch32v307")
 
 # 项目设置
 project(ch32v307 C CXX ASM)
 
 include(../../../../wch_init.cmake)
 
-config_app(ch32v307_tflite_minst)
-enable_rtos(10)
-enable_tflite()
-set_ram_and_flash(128 480)
+config_app(ch32v307_tflite_minst ch32v307 enable_rtos enable_cpp enable_printf_sdi enable_tflite r128k_f480k)
