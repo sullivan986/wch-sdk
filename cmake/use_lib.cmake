@@ -1,24 +1,26 @@
 # freertos for ch32v307
 add_library(freertos INTERFACE)
-aux_source_directory(${WCH_SDK_PATH}/libs/FreeRTOS freertos_source)
+set(LIB_FREERTOS_PATH ${WCH_SDK_PATH}/libs/ch32v307/EVT/EXAM/FreeRTOS/FreeRTOS_Core/FreeRTOS)
+aux_source_directory(${LIB_FREERTOS_PATH} lib_freertos_source)
 target_include_directories(freertos INTERFACE
-    ${WCH_SDK_PATH}/libs/FreeRTOS/include
-    ${WCH_SDK_PATH}/libs/FreeRTOS/portable/GCC/RISC-V
-    ${WCH_SDK_PATH}/libs/FreeRTOS/portable/GCC/RISC-V/chip_specific_extensions/RV32I_PFIC_no_extensions
+    ${LIB_FREERTOS_PATH}/include
+    ${LIB_FREERTOS_PATH}/portable/GCC/RISC-V
+    #${LIB_FREERTOS_PATH}/portable/GCC/RISC-V/chip_specific_extensions/RV32I_PFIC_no_extensions
+)
+configure_file(
+    ${LIB_FREERTOS_PATH}/portable/GCC/RISC-V/chip_specific_extensions/RV32I_PFIC_no_extensions/freertos_risc_v_chip_specific_extensions.h
+    ${CMAKE_BINARY_DIR}/tmp_file/freertos_risc_v_chip_specific_extensions.h
 )
 target_sources(freertos PUBLIC
-    ${freertos_source}
+    ${lib_freertos_source}
     #${WCH_SDK_PATH}/libs/FreeRTOS/portable/Common/mpu_wrappers.c
-    ${WCH_SDK_PATH}/libs/FreeRTOS/portable/MemMang/heap_4.c 
-    ${WCH_SDK_PATH}/libs/FreeRTOS/portable/GCC/RISC-V/port.c
-    ${WCH_SDK_PATH}/libs/FreeRTOS/portable/GCC/RISC-V/portASM.S
+    ${LIB_FREERTOS_PATH}/portable/MemMang/heap_4.c 
+    ${LIB_FREERTOS_PATH}/portable/GCC/RISC-V/port.c
+    ${LIB_FREERTOS_PATH}/portable/GCC/RISC-V/portASM.S
 )
-
-
 
 # cherry USB
 add_library(Cherry_USB INTERFACE)
-
 
 # wasm has three rt: jit aot interpreter
 add_library(wasm_runtime INTERFACE)
@@ -69,30 +71,7 @@ target_include_directories(tflite INTERFACE
 )
 set(tflite_dir "${WCH_SDK_PATH}/libs/tflite-micro/tensorflow/lite")
 set(tflite_signal_dir "${WCH_SDK_PATH}/libs/tflite-micro/signal")
-file(GLOB tflite_all_srcs
-    "${tflite_dir}/core/c/common.cc"
-    "${tflite_dir}/core/api/*.cc"
-    "${tflite_dir}/kernels/*.cc"
-    "${tflite_dir}/kernels/*/*.cc"
-    "${tflite_dir}/kernels/*/*/*.cc"
-    "${tflite_dir}/micro/*.c"
-    "${tflite_dir}/micro/*.cc"
-    "${tflite_dir}/micro/tflite_bridge/*.c"
-    "${tflite_dir}/micro/tflite_bridge/*.cc"
-    "${tflite_dir}/micro/kernels/*.c"
-    "${tflite_dir}/micro/kernels/*.cc"
-    "${tflite_dir}/micro/memory_planner/*.cc"
-    "${tflite_dir}/micro/arena_allocator/*.cc"
-    "${tflite_dir}/schema/*.cc"
-    
-    "${tflite_signal_dir}/micro/kernels/*.c"
-    "${tflite_signal_dir}/micro/kernels/*.cc"
-    "${tflite_signal_dir}/src/*.c"
-    "${tflite_signal_dir}/src/*.cc"
-    "${tflite_signal_dir}/src/kiss_fft_wrappers/*.cc"
-    "${tflite_signal_dir}/src/tensorflow_core/kernels/*.cc"
-    "${tflite_signal_dir}/src/tensorflow_core/ops/*.cc"
-)
+ 
 file(GLOB will_remove_src 
     "${tflite_dir}/micro/*_test.cc"
     "${tflite_dir}/micro/kernels/*_test.cc"
@@ -119,18 +98,24 @@ target_link_libraries(utensil INTERFACE
 
 function(enable_rtos STACK_size)
     if(CHIP_NAME STREQUAL "ch32v307")
+        # configure_file(
+        #     ${WCH_SDK_PATH}/hal/CH32V307/config/FreeRTOSConfig.h.in
+        #     ${CMAKE_BINARY_DIR}/tmp_file/FreeRTOSConfig.h 
+        # )
         configure_file(
-            ${WCH_SDK_PATH}/hal/CH32V307/FreeRTOSConfig.h.in
-            ${CMAKE_BINARY_DIR}/tmp_file/FreeRTOSConfig.h 
+            ${LIB_FREERTOS_PATH}/../User/FreeRTOSConfig.h
+            ${CMAKE_BINARY_DIR}/tmp_file/FreeRTOSConfig.h
+            COPYONLY
         )
         add_custom_command(
             TARGET ${CMAKE_CURRENT_PROJECT_PARAM} PRE_BUILD
             COMMAND rm ${CMAKE_BINARY_DIR}/tmp_file/Link.ld
-            COMMAND cp ${WCH_SDK_PATH}/hal/CH32V307/LinkRtos.ld ${CMAKE_BINARY_DIR}/tmp_file/Link.ld
-            COMMAND cp ${WCH_SDK_PATH}/hal/CH32V307/FreeRTOSConfig.h.in ${CMAKE_BINARY_DIR}/tmp_file/FreeRTOSConfig.h
-            COMMAND sed -i "s/@STACK_size@/${STACK_size}/g" ${CMAKE_BINARY_DIR}/tmp_file/FreeRTOSConfig.h
+            COMMAND cp ${WCH_SDK_PATH}/hal/CH32V307/config/LinkRtos.ld ${CMAKE_BINARY_DIR}/tmp_file/Link.ld
+            COMMAND sed -i 's/define ARCH_FPU 0/define ARCH_FPU 1/g' ${CMAKE_BINARY_DIR}/tmp_file/freertos_risc_v_chip_specific_extensions.h
+            # COMMAND cp ${WCH_SDK_PATH}/hal/CH32V307/config/FreeRTOSConfig.h.in ${CMAKE_BINARY_DIR}/tmp_file/FreeRTOSConfig.h
+           # COMMAND sed -i "s/@STACK_size@/${STACK_size}/g" ${CMAKE_BINARY_DIR}/tmp_file/FreeRTOSConfig.h
         )
-    elseif(CHIP_NAME STREQUAL "ch58x")
+    elseif(CHIP_NAME STREQUAL "ch59x")
         # TODO
     endif()
     target_link_libraries(${CMAKE_CURRENT_PROJECT_PARAM} PUBLIC freertos)

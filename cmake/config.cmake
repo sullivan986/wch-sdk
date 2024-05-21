@@ -1,19 +1,52 @@
 include(${WCH_SDK_PATH}/cmake/chip.cmake)
 include(${WCH_SDK_PATH}/cmake/use_lib.cmake)
 
+
+function(config_app1 app_name chip_name)
+    set(CMAKE_CURRENT_PROJECT_PARAM "${app_name}" CACHE STRING INTERNAL FORCE)
+    string(FIND ${ARGN} enable_rtos APP_ENABLE_RTOS)
+    string(FIND ${ARGN} enable_cpp APP_ENABLE_CPP)
+    if(NOT ${APP_ENABLE_RTOS} EQUAL -1)
+        message("--------------------->")
+    endif()
+    add_executable(${app_name})
+    aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src APP_SRC)
+    if(CHIP_NAME STREQUAL "ch32v307")
+        set(APP_HAL_PATH libs/ch32v307/EVT/EXAM)
+        file(GLOB APP_ALL_SRC
+            "${APP_HAL_PATH}/SRC/Core/*.c"
+            "${APP_HAL_PATH}/SRC/Debug/*.c"
+            "${APP_HAL_PATH}/SRC/Peripheral/src/*.c"
+            "${APP_HAL_PATH}/SRC/Core/*.c"
+        )
+    
+    elseif(CHIP_NAME STREQUAL "ch59x")
+    endif()
+    
+endfunction()
+
+
 if(NOT CHIP_NAME)
-    message(FATAL_ERROR "please set CHIP_NAME for ch32")
+    message("testtesttest")
 elseif(CHIP_NAME STREQUAL "ch32v307")
     aux_source_directory(${WCH_SDK_PATH}/hal/CH32V307/src FILE_SRC)
     function(config_app param)
+        string(FIND "${ARGN}" "enable_rtos" APP_ENABLE_RTOS)
+        if(NOT ${APP_ENABLE_RTOS} EQUAL -1)
+            message("--------------------->")
+        endif()
+        
         set(CMAKE_CURRENT_PROJECT_PARAM "${param}" CACHE STRING INTERNAL FORCE)
+        # string(FIND ${ARGN} enable_rtos SDK_CONFIG_ENABLE_RTOS)
         # current app source file
         add_executable(${param})
         aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src APP_SRC)
+        aux_source_directory(${CMAKE_BINARY_DIR}/tmp_file APP_TMP_SRC)
         target_sources(${param} PRIVATE
             ${FILE_SRC}
             ${WCH_SDK_PATH}/hal/CH32V307/startup_ch32v30x_D8C.S
             ${APP_SRC}
+            ${APP_TMP_SRC}
         )
         target_include_directories(${param} PRIVATE
             ${CMAKE_BINARY_DIR}/tmp_file
@@ -67,8 +100,8 @@ elseif(CHIP_NAME STREQUAL "ch32v307")
         set(BIN_FILE ${PROJECT_BINARY_DIR}/app.bin)
         add_custom_command(
             TARGET ${param} PRE_BUILD
-            COMMAND rm -r -f ${CMAKE_BINARY_DIR}/tmp_file
-            COMMAND mkdir ${CMAKE_BINARY_DIR}/tmp_file
+           # COMMAND rm -r -f ${CMAKE_BINARY_DIR}/tmp_file
+            COMMAND mkdir -p ${CMAKE_BINARY_DIR}/tmp_file
             COMMAND cp ${WCH_SDK_PATH}/hal/CH32V307/Link.ld ${CMAKE_BINARY_DIR}/tmp_file
         )
         add_custom_command(
@@ -85,6 +118,8 @@ elseif(CHIP_NAME STREQUAL "ch58x")
     include_directories(${WCH_SDK_PATH}/hal/CH58X/include)
     aux_source_directory(${WCH_SDK_PATH}/hal/CH58X/src FILE_SRC)
     function(config_app param)
+        # get ARGN param
+
         # current app source file
         add_executable(${param})
         aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src APP_SRC)
