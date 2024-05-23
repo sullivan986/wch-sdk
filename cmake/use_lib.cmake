@@ -119,24 +119,27 @@ function(enable_rtos app_name chip_name)
     if(${chip_name} STREQUAL "ch32v307")
         configure_file(
             ${LIB_FREERTOS_PATH}/../User/FreeRTOSConfig.h
-            ${CMAKE_BINARY_DIR}/tmp_file/FreeRTOSConfig.h
+            ${CMAKE_BINARY_DIR}/tmp_file/${chip_name}/FreeRTOSConfig.h
             COPYONLY
         )
         configure_file(
             ${LIB_FREERTOS_PATH}/portable/GCC/RISC-V/chip_specific_extensions/RV32I_PFIC_no_extensions/freertos_risc_v_chip_specific_extensions.h
-            ${CMAKE_BINARY_DIR}/tmp_file/freertos_risc_v_chip_specific_extensions.h
+            ${CMAKE_BINARY_DIR}/tmp_file/${chip_name}/freertos_risc_v_chip_specific_extensions.h
             COPYONLY
         )
         add_custom_command(
             TARGET ${app_name} PRE_BUILD
-            COMMAND rm -f ${CMAKE_BINARY_DIR}/tmp_file/Link.ld
-            COMMAND rm -f ${CMAKE_BINARY_DIR}/tmp_file/startup_ch32v30x_D8C.S
-            COMMAND cp ${WCH_SDK_PATH}/configure/ch32v307/LinkRtos.ld ${CMAKE_BINARY_DIR}/tmp_file/Link.ld
-            COMMAND cp ${LIB_FREERTOS_PATH}/../Startup/startup_ch32v30x_D8C.S ${CMAKE_BINARY_DIR}/tmp_file/startup_ch32v30x_D8C.S
-            COMMAND sed -i 's/define ARCH_FPU 0/define ARCH_FPU 1/g' ${CMAKE_BINARY_DIR}/tmp_file/freertos_risc_v_chip_specific_extensions.h
+            COMMAND rm -f ${CMAKE_BINARY_DIR}/tmp_file/${chip_name}/Link.ld
+            COMMAND rm -f ${CMAKE_BINARY_DIR}/tmp_file/${chip_name}/startup_ch32v30x_D8C.S
+            COMMAND cp ${WCH_SDK_PATH}/configure/ch32v307/LinkRtos.ld ${CMAKE_BINARY_DIR}/tmp_file/${chip_name}/Link.ld
+            COMMAND cp ${LIB_FREERTOS_PATH}/../Startup/startup_ch32v30x_D8C.S ${CMAKE_BINARY_DIR}/tmp_file/${chip_name}/startup_ch32v30x_D8C.S
+            COMMAND sed -i 's/define ARCH_FPU 0/define ARCH_FPU 1/g' ${CMAKE_BINARY_DIR}/tmp_file/${chip_name}/freertos_risc_v_chip_specific_extensions.h
         )
     elseif(${chip_name} STREQUAL "ch59x")
         # TODO
+
+    else()
+        message(FATAL_ERROR "${chip_name} is not support freertos!")
     endif()
     target_link_libraries(${app_name} PUBLIC freertos)
     add_compile_definitions(USE_UTENSIL_FREERTOS)

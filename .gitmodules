@@ -19,3 +19,9 @@
 [submodule "libs/ch592"]
 	path = libs/ch592
 	url = https://github.com/openwch/ch592
+[submodule "libs/ch32v003"]
+	path = libs/ch32v003
+	url = https://github.com/openwch/ch32v003
+[submodule "libs/micropython"]
+	path = libs/micropython
+	url = https://github.com/micropython/micropython

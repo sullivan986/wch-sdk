@@ -1,20 +1,16 @@
 #include "FreeRTOS.h"
-#include "ch32v30x_gpio.h"
-#include "ch32v30x_opa.h"
 #include "debug.h"
 #include "task.h"
 #include "utensil.hpp"
 
 TaskHandle_t Task1Task_Handler;
 TaskHandle_t Task2Task_Handler;
-static bool btn_bit = false;
-
 void task1(void *pvParameters)
 {
     while (1)
     {
         log_debug("task1!");
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        task_sleep_ms(1000);
     }
 }
 
@@ -23,7 +19,7 @@ void task2(void *pvParameters)
     while (1)
     {
         log_debug("task2!");
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        task_sleep_ms(1000);
     }
 }
 
@@ -44,6 +40,6 @@ int main(void)
     while (1)
     {
         log_error("in end");
-        Delay_Us(1000);
+        task_sleep_ms(1000);
     }
 }

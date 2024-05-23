@@ -5,9 +5,13 @@ set(WCH_SDK_PATH ${CMAKE_CURRENT_LIST_DIR})
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_C_STANDARD 11)
 
+if(EXISTS ${CMAKE_CURRENT_LIST_DIR}/riscv-gcc)
+    set(TOOLPATH ${CMAKE_CURRENT_LIST_DIR}/riscv-gcc/MRS_Toolchain_Linux_x64_V1.91/RISC-V_Embedded_GCC12/bin)
+endif()
+
 # toolchains setting
 if(NOT TOOLPATH)
-    message(FATAL_ERROR "please set TOOLPATH for wch gcc")
+    message(FATAL_ERROR "please use install_toolchains.sh download toolchains or set your TOOLPATH for wch gcc.")
 else() 
     set(CMAKE_C_COMPILER ${TOOLPATH}/riscv-none-elf-gcc)
     set(CMAKE_CXX_COMPILER ${TOOLPATH}/riscv-none-elf-g++)
