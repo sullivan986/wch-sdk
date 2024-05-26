@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
 
-# 工具链设置
 project(rtos C CXX ASM)
 include(../../wch_init.cmake)
 

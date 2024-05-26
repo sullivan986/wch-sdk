@@ -1,5 +1,5 @@
 CompileFlags:
-    Remove: [-march=rv32imafcxw]
+    Remove: [-march=rv32imafcxw, -march=rv32ecxw]
 
 Diagnostics:
   Suppress: []

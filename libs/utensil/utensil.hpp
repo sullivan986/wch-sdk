@@ -4,6 +4,13 @@
 #include "debug.h"
 #include <stdio.h>
 
+extern "C"
+{
+    void ch32_init()
+    {
+        
+    }
+}
 // usb-print
 // extern "C"
 // {

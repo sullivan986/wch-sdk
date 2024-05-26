@@ -6,7 +6,6 @@
 #include "portable.h"
 #include "task.h"
 #include "test_data.hpp"
-#include "tflite_use.hpp"
 #include "utensil.hpp"
 #include <algorithm>
 #include <cstdio>

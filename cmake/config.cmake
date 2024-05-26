@@ -49,7 +49,13 @@ function(config_app app_name chip_name)
         set(CHIP_COMPILE_OPS_ABI ilp32e)
         set(CHIP_COMPILE_OPS_SDL 0)
     elseif(chip_name STREQUAL "ch592")
-        #TODO
+        set(APP_HAL_PATH ${WCH_SDK_PATH}/libs/ch32v003/EVT/EXAM)
+        set(APP_SERIES_NAME ch32v00x)
+        set(APP_STARTUP_FILE startup_${APP_SERIES_NAME}.S)
+    
+        set(CHIP_COMPILE_OPS_ARCH rv32ecxw)
+        set(CHIP_COMPILE_OPS_ABI ilp32e)
+        set(CHIP_COMPILE_OPS_SDL 0)
     else()
         message(FATAL_ERROR "chip_name:${chip_name} is not support")
     endif()
@@ -76,6 +82,7 @@ function(config_app app_name chip_name)
         -Wunused
         -Wuninitialized
         -lm
+        -DUTENSIL_SET_CHIP_${chip_name}
     )
 
     target_link_options(${app_name} PRIVATE

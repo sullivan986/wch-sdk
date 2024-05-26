@@ -2,4 +2,7 @@
 ## how to use
 
 ## support chip
-all ch chip
+|support  chip|
+|:----------- |
+|CH32V307     |
+|CH32V203     |
