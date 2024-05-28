@@ -29,17 +29,12 @@ void process_task(void *p)
     // tu.run();
     // auto output_data = tu.get_output_data(2);
 
-    auto output = tu.run([](TfLiteTensor *input) {
-        auto data_p = &test_data[0][0];
-        for (int i = 0; i < 28 * 28; i++)
-        {
-            input->data.f[i] = data_p[i];
-        }
-    });
+    auto data_p = &test_data[0][0];
+    auto output_data = tu.run(data_p);
 
     for (int i = 0; i < 10; i++)
     {
-        log_info("p_value %d: %f", i, output->data.f[i]);
+        log_info("p_value %d: %f", i, output_data.f[i]);
     }
 }
 

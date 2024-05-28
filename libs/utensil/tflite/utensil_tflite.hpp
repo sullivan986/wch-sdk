@@ -1,6 +1,7 @@
 #ifndef UTENSIL_TFLITE_HPP
 #define UTENSIL_TFLITE_HPP
 
+#include "span"
 #include "tensorflow/lite/micro/kernels/micro_ops.h"
 #include "utensil.hpp"
 #include <cmath>
@@ -153,14 +154,38 @@ template <tu_Resolver_Operator... Resolver_Operators> class tflite_use
         (resolver_add_operator(Resolver_Operators), ...);
 
         // 初始化一个解释器对象
-        interpreter = new tflite::MicroInterpreter(model, resolver, tensor_arena.data(), tensor_arena.size());
-
+        interpreter.reset(new tflite::MicroInterpreter(model, resolver, tensor_arena.data(), tensor_arena.size()));
         // 为模型的张量分配内存
         if (status = interpreter->AllocateTensors(), status != kTfLiteOk)
         {
             log_warinig("AllocateTensors error: %d", status);
             return;
         }
+    }
+
+    constexpr TfLiteTensor *get_input_tensor(size_t index)
+    {
+        return interpreter->input(index);
+    }
+
+    constexpr TfLiteTensor *get_output_tensor(size_t index)
+    {
+        return interpreter->output(index);
+    }
+
+    constexpr size_t get_input_tensor_size(size_t index)
+    {
+        return get_input_tensor(index)->bytes;
+    }
+
+    constexpr TfLitePtrUnion &get_input_data(size_t index)
+    {
+        return get_input_tensor(index)->data;
+    }
+
+    constexpr TfLitePtrUnion &get_output_data(size_t index)
+    {
+        return get_output_tensor(index)->data;
     }
 
     // 0 index input and out put
@@ -179,19 +204,20 @@ template <tu_Resolver_Operator... Resolver_Operators> class tflite_use
         return interpreter->output(0);
     }
 
+    template <typename T> TfLitePtrUnion &run(const T *data)
+    {
+        auto input_data = reinterpret_cast<T *>(get_input_data(0).data);
+        for (int i = 0; i < (get_input_tensor_size(0) / sizeof(T)); i++)
+        {
+            input_data[i] = data[i];
+        }
+        interpreter_calculate();
+        return get_output_data(0);
+    }
+
     void run()
     {
         interpreter_calculate();
-    }
-
-    TfLitePtrUnion &get_input_data(size_t index)
-    {
-        return interpreter->input(index)->data;
-    }
-
-    TfLitePtrUnion &get_output_data(size_t index)
-    {
-        return interpreter->output(index)->data;
     }
 
   private:
@@ -199,7 +225,7 @@ template <tu_Resolver_Operator... Resolver_Operators> class tflite_use
     tflite::MicroMutableOpResolver<sizeof...(Resolver_Operators)> resolver;
     // 解释器及其指针
     // tflite::MicroInterpreter static_interpreter;
-    tflite::MicroInterpreter *interpreter;
+    std::unique_ptr<tflite::MicroInterpreter> interpreter;
     // 模型指针
     const tflite::Model *model;
     // 返回状态
