@@ -12,7 +12,7 @@ Currently only some chips are supported, if you need more support you can contac
 |universal MCU|                        |BLE MCU      |                        | 
 |:----------- | :---------------------:|:----------- | :--------------------: | 
 |CH32V003     | ![alt text][supported] |CH58X        | ![alt text][todo]      | 
-|CH32V203     | ![alt text][todo]      |CH59X        | ![alt text][todo]      | 
+|CH32V203     | ![alt text][todo]      |CH59X        | ![alt text][supported] | 
 |CH32V307     | ![alt text][supported] |CH32V208     | ![alt text][todo]      | 
 
 Third-party library support status.
