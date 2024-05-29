@@ -22,6 +22,9 @@ extern "C"
  * INCLUDES
  */
 
+#include "stdint.h"
+#include "CH59xBLE_LIB.h"
+
 /*********************************************************************
  * CONSTANTS
  */

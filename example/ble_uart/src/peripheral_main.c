@@ -3,7 +3,7 @@
  * Author             : WCH
  * Version            : V1.1
  * Date               : 2020/08/06
- * Description        : ÍâÉè´Ó»úÓ¦ÓÃÖ÷º¯Êý¼°ÈÎÎñÏµÍ³³õÊ¼»¯
+ * Description        : ï¿½ï¿½ï¿½ï¿½Ó»ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½Ê¼ï¿½ï¿½
  *********************************************************************************
  * Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
  * Attention: This software (modified or not) and binary are used for 
@@ -11,7 +11,8 @@
  *******************************************************************************/
 
 /******************************************************************************/
-/* Í·ÎÄ¼þ°üº¬ */
+/* Í·ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ */
+#include "stdint.h"
 #include "CONFIG.h"
 #include "HAL.h"
 #include "gattprofile.h"
@@ -31,7 +32,7 @@ extern void app_uart_init(void);
 
 /*******************************************************************************
  * Function Name  : Main_Circulation
- * Description    : Ö÷Ñ­»·
+ * Description    : ï¿½ï¿½Ñ­ï¿½ï¿½
  * Input          : None
  * Output         : None
  * Return         : None
@@ -49,7 +50,7 @@ void Main_Circulation()
 
 /*******************************************************************************
  * Function Name  : main
- * Description    : Ö÷º¯Êý
+ * Description    : ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
  * Input          : None
  * Output         : None
  * Return         : None

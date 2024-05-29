@@ -160,6 +160,7 @@ function(config_ble_mcu app_name chip_name)
         -fdata-sections
         -fno-common # Disable implicit sharing of global variables.
         -DUTENSIL_SET_CHIP_${chip_name}
+        -D${APP_SERIES_NAME}
     )
 
     target_link_options(${app_name} PRIVATE
