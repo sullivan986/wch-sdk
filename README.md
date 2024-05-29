@@ -1,12 +1,6 @@
 # wch-sdk
 CMake SDK port for Qinheng Universal MCU.
 
-<strong>warning</strong>: This repository can only be used under linux.
-
-<strong>warning</strong>: This repository is primarily focused on c++ support for a number of reasons.
-
-<strong>warning</strong>: This example is mainly based on ch32v307, please refer to the official EVT for other chip routines.
-
 ## support content
 Currently only some chips are supported, if you need more support you can contact me.
 |universal MCU|                        |BLE MCU      |                        | 
@@ -47,4 +41,12 @@ cmake --no-warn-unused-cli -DCMAKE_BUILD_TYPE:STRING=Release -DCMAKE_EXPORT_COMP
 cmake --build build --config Release --target hello_world --
 ```
 
-Then you will see the app.hex in the build directory.
+Then you will see the app.hex file in the build directory.
+
+
+## Notice
+<strong>warning</strong>: This repository can only be used under linux.
+
+<strong>warning</strong>: This repository is primarily focused on c++ support for a number of reasons.
+
+<strong>warning</strong>: This example is mainly based on ch32v307, please refer to the official EVT for other chip routines.

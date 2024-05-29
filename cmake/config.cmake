@@ -249,8 +249,8 @@ function(config_app app_name chip_name)
     endif()
       
 
-    set(HEX_FILE ${PROJECT_BINARY_DIR}/${app_name}.hex)
-    set(BIN_FILE ${PROJECT_BINARY_DIR}/${app_name}.bin)
+    set(HEX_FILE ${PROJECT_BINARY_DIR}/app.hex)
+    set(BIN_FILE ${PROJECT_BINARY_DIR}/app.bin)
     add_custom_command(
         TARGET ${app_name} POST_BUILD
         COMMAND ${CMAKE_OBJCOPY} -Oihex $<TARGET_FILE:${app_name}> ${HEX_FILE}
