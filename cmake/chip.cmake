@@ -48,7 +48,7 @@ function(enable_cpp app_name chip_name)
 endfunction()
 
 function(enable_printf app_name chip_name printf_target)
-    if(printf_target STREQUAL "sdi")
+    if(${printf_target} STREQUAL "sdi")
         add_custom_command(
             TARGET ${app_name} PRE_BUILD 
             COMMAND sed -i 's/define SDI_PRINT \ \ SDI_PR_CLOSE/define SDI_PRINT SDI_PR_OPEN/g' ${CMAKE_BINARY_DIR}/tmp_file/${chip_name}/debug.h

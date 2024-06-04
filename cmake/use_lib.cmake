@@ -34,7 +34,10 @@ target_include_directories(wasm_runtime INTERFACE
 )
 file(GLOB wamr_all_srcs
     "${wamr_core_dir}/iwasm/common/*.c"
-    "${wamr_core_dir}/iwasm/interpreter/*.c"
+    #"${wamr_core_dir}/iwasm/interpreter/*.c"
+    "${wamr_core_dir}/iwasm/interpreter/wasm_interp_classic.c"
+    "${wamr_core_dir}/iwasm/interpreter/wasm_loader.c"
+    "${wamr_core_dir}/iwasm/interpreter/wasm_runtime.c"
     "${wamr_core_dir}/iwasm/libraries/libc-builtin/*.c"
     "${wamr_core_dir}/shared/mem-alloc/*.c"
     "${wamr_core_dir}/shared/mem-alloc/ems/*.c"
@@ -165,29 +168,29 @@ function(enable_tflite app_name)
     add_compile_definitions(USE_UTENSIL_TFLITE)
 endfunction()
 
-# function(enable_wasm app_name)
-#     target_compile_options(${CMAKE_CURRENT_PROJECT_PARAM} PRIVATE
-#         -DBH_MALLOC=wasm_runtime_malloc
-#         -DBH_FREE=wasm_runtime_free
-#         -DBUILD_TARGET_RISCV32_ILP32
-#         -DWASM_ENABLE_GLOBAL_HEAP_POOL=1
-#         -DWASM_GLOBAL_HEAP_SIZE=65536 # runtime stack size 64kb
-#         -DWASM_ENABLE_INTERP=1
-#         -DWASM_ENABLE_LIBC_BUILTIN=1
-#         -DWAMR_BUILD_PLATFORM=WCH
-#     )
-#     # set (WAMR_BUILD_PLATFORM "wch")
-#     # set (WAMR_BUILD_TARGET "RISCV32_ILP32")
-#     # set (WAMR_BUILD_INTERP 1)
-#     # set (WAMR_BUILD_LIBC_BUILTIN 1)
-#     # set (WAMR_BUILD_LIBC_WASI 1)
-#     # set (WAMR_BUILD_FAST_INTERP 0)
-#     # set (WAMR_BUILD_GLOBAL_HEAP_POOL 1)
-#     # set (WAMR_BUILD_GLOBAL_HEAP_SIZE 65536) # 64 KB
-#     # set (WAMR_BUILD_AOT 0)
-#     # set (WAMR_ROOT_DIR ${WCH_SDK_PATH}/libs/wasm-micro-runtime)
-#     #set (SHARED_PLATFORM_CONFIG ${WCH_SDK_PATH}/libs/utensil/wasm/shared_platform.cmake)
-#     #include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
-#     #target_sources(${CMAKE_CURRENT_PROJECT_PARAM} PRIVATE ${WAMR_RUNTIME_LIB_SOURCE})
-#     target_link_libraries(${CMAKE_CURRENT_PROJECT_PARAM} PUBLIC wasm_runtime)
-# endfunction(enable_wasm)
+function(enable_wasm app_name)
+    target_compile_definitions(${app_name} PRIVATE
+        BH_MALLOC=wasm_runtime_malloc
+        BH_FREE=wasm_runtime_free
+        BUILD_TARGET_RISCV32_ILP32
+        WASM_ENABLE_GLOBAL_HEAP_POOL=1
+        WASM_GLOBAL_HEAP_SIZE=65536 # runtime stack size 64kb
+        WASM_ENABLE_INTERP=1
+        WASM_ENABLE_LIBC_BUILTIN=1
+        WAMR_BUILD_PLATFORM=WCH
+    )
+    # set (WAMR_BUILD_PLATFORM "wch")
+    # set (WAMR_BUILD_TARGET "RISCV32_ILP32")
+    # set (WAMR_BUILD_INTERP 1)
+    # set (WAMR_BUILD_LIBC_BUILTIN 1)
+    # set (WAMR_BUILD_LIBC_WASI 1)
+    # set (WAMR_BUILD_FAST_INTERP 0)
+    # set (WAMR_BUILD_GLOBAL_HEAP_POOL 1)
+    # set (WAMR_BUILD_GLOBAL_HEAP_SIZE 65536) # 64 KB
+    # set (WAMR_BUILD_AOT 0)
+    # set (WAMR_ROOT_DIR ${WCH_SDK_PATH}/libs/wasm-micro-runtime)
+    # set (SHARED_PLATFORM_CONFIG ${WCH_SDK_PATH}/libs/utensil/wasm/shared_platform.cmake)
+    # include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
+    # target_sources(${app_name} PRIVATE ${WAMR_RUNTIME_LIB_SOURCE})
+    target_link_libraries(${app_name} PUBLIC wasm_runtime)
+endfunction(enable_wasm)

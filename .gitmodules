@@ -25,3 +25,6 @@
 [submodule "libs/micropython"]
 	path = libs/micropython
 	url = https://github.com/micropython/micropython
+[submodule "libs/Lab-Project-FreeRTOS-POSIX"]
+	path = libs/Lab-Project-FreeRTOS-POSIX
+	url = https://github.com/FreeRTOS/Lab-Project-FreeRTOS-POSIX
