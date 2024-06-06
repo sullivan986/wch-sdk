@@ -40,10 +40,7 @@ void process_task(void *p)
 
 extern "C" int main()
 {
-    NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
-    SystemCoreClockUpdate();
-    Delay_Init();
-    SDI_Printf_Enable();
+    ch_init();
     log_debug("SystemClk:%d", SystemCoreClock);
     log_debug("ChipID:%08x", DBGMCU_GetCHIPID());
     log_debug("FreeRTOS Kernel Version:%s", tskKERNEL_VERSION_NUMBER);

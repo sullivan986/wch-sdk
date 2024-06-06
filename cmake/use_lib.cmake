@@ -145,7 +145,9 @@ function(enable_rtos app_name chip_name)
         message(FATAL_ERROR "${chip_name} is not support freertos!")
     endif()
     target_link_libraries(${app_name} PUBLIC freertos)
-    add_compile_definitions(USE_UTENSIL_FREERTOS)
+    target_compile_definitions(${app_name} PRIVATE
+        WCH_USE_LIB_FREERTOS
+    )
 endfunction()
 
 
@@ -165,7 +167,9 @@ function(enable_tflite app_name)
         set_target_properties(${app_name} PROPERTIES COMPILE_OPTIONS "${MyLib_COMPILE_OPTIONS}")
     endif()
     target_link_libraries(${app_name} PUBLIC tflite printfloat)
-    add_compile_definitions(USE_UTENSIL_TFLITE)
+    target_compile_definitions(${app_name} PRIVATE
+        WCH_USE_LIB_TFLITE
+    )
 endfunction()
 
 function(enable_wasm app_name)
@@ -193,4 +197,7 @@ function(enable_wasm app_name)
     # include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
     # target_sources(${app_name} PRIVATE ${WAMR_RUNTIME_LIB_SOURCE})
     target_link_libraries(${app_name} PUBLIC wasm_runtime)
+    target_compile_definitions(${app_name} PRIVATE
+        WCH_USE_LIB_WASM
+    )
 endfunction(enable_wasm)

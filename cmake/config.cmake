@@ -45,7 +45,6 @@ function(config_common_mcu app_name chip_name)
         -Wunused
         -Wuninitialized
         -lm
-        -DUTENSIL_SET_CHIP_${chip_name}
         ${EXTRA_CO}
     )
 
@@ -159,7 +158,6 @@ function(config_ble_mcu app_name chip_name)
         -ffunction-sections
         -fdata-sections
         -fno-common # Disable implicit sharing of global variables.
-        -DUTENSIL_SET_CHIP_${chip_name}
         -D${APP_SERIES_NAME}
     )
 
@@ -184,6 +182,7 @@ function(config_ble_mcu app_name chip_name)
     target_link_libraries(${app_name}
         ${APP_HAL_PATH}/BLE/LIB/LIBCH59xBLE.a
         ${APP_HAL_PATH}/SRC/StdPeriphDriver/libISP592.a
+        utensil
     )
 
 
@@ -203,6 +202,7 @@ endfunction()
 
 function(config_app app_name chip_name)
     set(CMAKE_CURRENT_PROJECT_PARAM "${app_name}" CACHE STRING INTERNAL FORCE)
+
 
     string(FIND "${ARGN}" "enable_rtos" APP_ENABLE_RTOS)
     string(FIND "${ARGN}" "enable_cpp" APP_ENABLE_CPP)
@@ -235,7 +235,10 @@ function(config_app app_name chip_name)
         ${APP_ALL_SRC_1}
     )
 
-    
+    target_compile_definitions(${app_name} PRIVATE
+        -DUTENSIL_SET_CHIP_${chip_name}
+    )
+
     set(common_mcu_list "ch32v307" "ch32v003")
     set(ble_mcu_list "ch592")
 
@@ -270,6 +273,17 @@ function(config_app app_name chip_name)
 
     if(NOT ${APP_ENABLE_PRINT_SDI} EQUAL -1)
         enable_printf(${app_name} ${chip_name} sdi)
+    endif()
+
+    if(NOT ${APP_ENABLE_PRINT_UART1} EQUAL -1)
+        enable_printf(${app_name} ${chip_name} uart1)
+    endif()
+    if(NOT ${APP_ENABLE_PRINT_UART2} EQUAL -1)
+        enable_printf(${app_name} ${chip_name} uart2)
+    endif()
+    
+    if(NOT ${APP_ENABLE_PRINT_UART3} EQUAL -1)
+        enable_printf(${app_name} ${chip_name} uart3)
     endif()
 
     if(NOT ${APP_ENABLE_TFLITE} EQUAL -1)
