@@ -181,6 +181,7 @@ struct characteristic_causality
     bool flag_notify = false;
     bool flag_indicate = false;
     gattCharCfg_t config[PERIPHERAL_MAX_CONNECTION];
+    uint8_t cfg_table_value_index;
 
     uint8_t props = 0;
 
@@ -283,24 +284,6 @@ static void simpleProfile_HandleConnStatusCB(uint16_t connHandle, uint8_t change
     }
 }
 
-// static void simpleProfileChangeCB(uint8_t paramID, uint8_t *pValue, uint16_t len)
-// {
-//     // TODO 多service
-//     for (auto &&[service_id, service] : service_map)
-//     {
-//         for (auto &&[characteristic_id, characteristic] : service.characteristics)
-//         {
-//             if (characteristic_id == paramID)
-//             {
-//                 uint8_t newValue[characteristic.buff.size()];
-//                 tmos_memcpy(newValue, pValue, len);
-//                 PRINT("[CHANGE] profile ChangeCB char[%d].. \n\r", characteristic_id);
-//                 break;
-//             }
-//         }
-//     }
-// }
-
 class ble_peripheral_controller
 {
   public:
@@ -308,7 +291,7 @@ class ble_peripheral_controller
     struct characteristic_operator
     {
         characteristic_operator(ble_peripheral_controller *parent, uint8_t p_service_id, uint8_t p_characteristic_id)
-            : _parent(parent)
+            : _parent(parent), _parent_service_id(p_service_id)
         {
             service_map[p_service_id].characteristics[p_characteristic_id] = {};
             target_characteristic = &service_map[p_service_id].characteristics[p_characteristic_id];
@@ -365,6 +348,45 @@ class ble_peripheral_controller
             target_characteristic->flag_indicate = true;
             return *this;
         }
+
+        void notify(std::span<const uint8_t> data)
+        {
+            bStatus_t status;
+            attHandleValueNoti_t noti;
+            if (data.size() > (peripheralMTU - 3))
+            {
+                PRINT("Too large noti data \r\n");
+                return;
+            }
+            noti.len = data.size();
+            noti.pValue =
+                (uint8_t *)GATT_bm_alloc(peripheralConnList.connHandle, ATT_HANDLE_VALUE_NOTI, noti.len, NULL, 0);
+            if (noti.pValue)
+            {
+                tmos_memcpy(noti.pValue, data.data(), noti.len);
+
+                // If notifications enabled
+                PRINT("test1 \r\n");
+                if (GATTServApp_ReadCharCfg(peripheralConnList.connHandle, target_characteristic->config) &
+                    GATT_CLIENT_CFG_NOTIFY)
+                {
+                    PRINT("test12 \r\n");
+                    // Set the handle
+                    noti.handle = service_map[_parent_service_id]
+                                      .gatt_profile_table[target_characteristic->cfg_table_value_index]
+                                      .handle;
+
+                    // Send the notification
+                    status = GATT_Notification(peripheralConnList.connHandle, &noti, FALSE);
+                }
+                if (status != SUCCESS)
+                {
+                    PRINT("test12 3\r\n");
+                    GATT_bm_free((gattMsg_t *)&noti, ATT_HANDLE_VALUE_NOTI);
+                }
+            }
+        }
+        uint8_t _parent_service_id;
         characteristic_causality *target_characteristic;
         ble_peripheral_controller *_parent;
     };
@@ -448,6 +470,17 @@ class ble_peripheral_controller
         return *this;
     }
 
+    // TODO
+    constexpr ble_peripheral_controller &set_max_buff_size(size_t size)
+    {
+        return *this;
+    }
+
+    constexpr ble_peripheral_controller &set_max_connection(size_t size)
+    {
+        return *this;
+    }
+
     template <uint8_t ID> service_operator add_service_by_id()
     {
         service_operator _service_operator(this, ID);
@@ -515,6 +548,7 @@ class ble_peripheral_controller
                         0,                                     /* handle */
                         (uint8_t *)characteristic.config       /* pValue */
                     };
+                    characteristic.cfg_table_value_index = service.gatt_profile_table.size();
                     service.gatt_profile_table.emplace_back(configuration_attr);
                 }
 
@@ -546,8 +580,8 @@ class ble_peripheral_controller
     //         return;
     //     }
     //     noti.len = data.size();
-    //     noti.pValue = (uint8_t *)GATT_bm_alloc(peripheralConnList.connHandle, ATT_HANDLE_VALUE_NOTI, noti.len, NULL,
-    //     0); if (noti.pValue)
+    //     noti.pValue = (uint8_t *)GATT_bm_alloc(peripheralConnList.connHandle, ATT_HANDLE_VALUE_NOTI, noti.len,
+    //     NULL, 0); if (noti.pValue)
     //     {
     //         tmos_memcpy(noti.pValue, data.data(), noti.len);
     //         if (simpleProfile_Notify(peripheralConnList.connHandle, &noti) != SUCCESS)
