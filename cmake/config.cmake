@@ -212,6 +212,7 @@ function(config_app app_name chip_name)
     string(FIND "${ARGN}" "enable_printf_uart3" APP_ENABLE_PRINT_UART3)
     string(FIND "${ARGN}" "enable_tflite" APP_ENABLE_TFLITE)
     string(FIND "${ARGN}" "enable_wasm" APP_ENABLE_WASM)
+    string(FIND "${ARGN}" "enable_lvgl" APP_ENABLE_LVGL)
 
     string(FIND "${ARGN}" "r32k_f288k" APP_RAM32K_FLASH288K)
     string(FIND "${ARGN}" "r64k_f256k" APP_RAM64K_FLASH256K)
@@ -290,6 +291,10 @@ function(config_app app_name chip_name)
         enable_tflite(${app_name})
     endif()
 
+    if(NOT ${APP_ENABLE_LVGL} EQUAL -1)
+        enable_lvgl(${app_name})
+    endif()
+    
     # if(NOT ${APP_ENABLE_WASM} EQUAL -1)
     #     enable_wasm(${app_name})
     # endif()

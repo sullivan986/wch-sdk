@@ -108,6 +108,21 @@ target_sources(tflite INTERFACE
     ${tflite_all_srcs}
 )
 
+#lvgl
+add_library(lvgl INTERFACE)
+set(lvgl_dir "${WCH_SDK_PATH}/libs/lvgl")
+file(GLOB lvgl_all_src 
+    "${lvgl_dir}/src/*.c"
+)
+target_include_directories(lvgl INTERFACE
+    ${lvgl_dir}
+    ${lvgl_dir}/demos
+    ${WCH_SDK_PATH}/libs/utensil/lvgl
+)
+target_sources(tflite INTERFACE
+    ${lvgl_all_src}
+)
+
 # utensil
 add_library(utensil INTERFACE)
 target_include_directories(utensil INTERFACE
@@ -152,7 +167,7 @@ endfunction()
 
 
 function(enable_tflite app_name)
-    add_compile_definitions(
+    target_compile_definitions(${app_name} PRIVATE
         TF_LITE_DISABLE_X86_NEON
         TF_LITE_USE_GLOBAL_CMATH_FUNCTIONS
         TF_LITE_USE_GLOBAL_MAX
@@ -201,3 +216,15 @@ function(enable_wasm app_name)
         WCH_USE_LIB_WASM
     )
 endfunction(enable_wasm)
+
+
+function(enable_lvgl app_name)
+    target_compile_definitions(${app_name} PRIVATE
+        LV_TICK_PERIOD_MS=1
+    )
+    target_link_libraries(${app_name} PRIVATE lvgl)
+    target_compile_definitions(${app_name} PRIVATE
+        WCH_USE_LIB_LVGL
+    )
+endfunction(enable_lvgl)
+

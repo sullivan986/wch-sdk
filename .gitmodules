@@ -28,3 +28,6 @@
 [submodule "libs/Lab-Project-FreeRTOS-POSIX"]
 	path = libs/Lab-Project-FreeRTOS-POSIX
 	url = https://github.com/FreeRTOS/Lab-Project-FreeRTOS-POSIX
+[submodule "libs/lvgl"]
+	path = libs/lvgl
+	url = https://github.com/lvgl/lvgl

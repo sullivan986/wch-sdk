@@ -17,6 +17,7 @@ Third-party library support status.
 |[tflite-micro](https://github.com/tensorflow/tflite-micro)                     | ![alt text][supported]  |
 |[wasm-micro-runtime](https://github.com/bytecodealliance/wasm-micro-runtime)   | ![alt text][todo]       |
 |[micropython](https://github.com/micropython/micropython)                      | ![alt text][todo]       |
+|[lvgl](https://github.com/lvgl/lvgl)                                           | ![alt text][supported]  |
     
 [supported]: https://img.shields.io/badge/-supported-green "supported"
 [TODO]: https://img.shields.io/badge/-TODO-orange "todo"
