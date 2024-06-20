@@ -8,6 +8,8 @@ target_include_directories(freertos INTERFACE
     ${WCH_SDK_PATH}/libs/utensil/freertos
     #${LIB_FREERTOS_PATH}/portable/GCC/RISC-V/chip_specific_extensions/RV32I_PFIC_no_extensions
 )
+
+aux_source_directory(${LIB_FREERTOS_POSIX_PATH}/FreeRTOS-Plus-POSIX/source LIB_FREERTOS_POSIX_SRC)
 target_sources(freertos INTERFACE
     ${LIB_FREERTOS_SRC}
     ${LIB_FREERTOS_PATH}/portable/MemMang/heap_4.c 
@@ -85,7 +87,7 @@ file(GLOB tflite_all_srcs
 "${tflite_dir}/micro/memory_planner/*.cc"
 "${tflite_dir}/micro/arena_allocator/*.cc"
 "${tflite_dir}/schema/*.cc"
-
+ 
 "${tflite_signal_dir}/micro/kernels/*.c"
 "${tflite_signal_dir}/micro/kernels/*.cc"
 "${tflite_signal_dir}/src/*.c"
@@ -108,20 +110,49 @@ target_sources(tflite INTERFACE
     ${tflite_all_srcs}
 )
 
-#lvgl
-add_library(lvgl INTERFACE)
-set(lvgl_dir "${WCH_SDK_PATH}/libs/lvgl")
-file(GLOB lvgl_all_src 
-    "${lvgl_dir}/src/*.c"
+#lvgl8
+add_library(lvgl8 INTERFACE)
+set(lvgl8_dir "${WCH_SDK_PATH}/libs/lvgl8")
+file(GLOB lvgl8_all_src 
+    "${lvgl8_dir}/demos/*.c"
+    "${lvgl8_dir}/demos/*/*.c"
+    "${lvgl8_dir}/demos/*/*/*.c"
+    "${lvgl8_dir}/demos/*/*/*/*.c"
+    "${lvgl8_dir}/src/*.c"
+    "${lvgl8_dir}/src/*/*.c"
+    "${lvgl8_dir}/src/*/*/*.c"
+    "${lvgl8_dir}/src/*/*/*/*.c"
 )
-target_include_directories(lvgl INTERFACE
-    ${lvgl_dir}
-    ${lvgl_dir}/demos
-    ${WCH_SDK_PATH}/libs/utensil/lvgl
+target_include_directories(lvgl8 INTERFACE
+    ${lvgl8_dir}
+    ${lvgl8_dir}/demos
+    ${WCH_SDK_PATH}/libs/utensil/lvgl8
 )
-target_sources(tflite INTERFACE
-    ${lvgl_all_src}
+target_sources(lvgl8 INTERFACE
+    ${lvgl8_all_src}
 )
+
+#lvgl9
+add_library(lvgl9 INTERFACE)
+set(lvgl9_dir "${WCH_SDK_PATH}/libs/lvgl9")
+file(GLOB lvgl9_all_src 
+    "${lvgl9_dir}/demos/*.c"
+    "${lvgl9_dir}/demos/*/*.c"
+    "${lvgl9_dir}/demos/*/*/*.c"
+    "${lvgl9_dir}/src/*.c"
+    "${lvgl9_dir}/src/*/*.c"
+    "${lvgl9_dir}/src/*/*/*.c"
+    "${lvgl9_dir}/src/*/*/*/*.c"
+)
+target_include_directories(lvgl9 INTERFACE
+    ${lvgl9_dir}
+    ${lvgl9_dir}/demos
+    ${WCH_SDK_PATH}/libs/utensil/lvgl9
+)
+target_sources(lvgl9 INTERFACE
+    ${lvgl9_all_src}
+)
+
 
 # utensil
 add_library(utensil INTERFACE)
@@ -152,14 +183,16 @@ function(enable_rtos app_name chip_name)
             COMMAND cp ${WCH_SDK_PATH}/configure/ch32v307/LinkRtos.ld ${CMAKE_BINARY_DIR}/tmp_file/${chip_name}/Link.ld
             COMMAND cp ${LIB_FREERTOS_PATH}/../Startup/startup_ch32v30x_D8C.S ${CMAKE_BINARY_DIR}/tmp_file/${chip_name}/startup_ch32v30x_D8C.S
             COMMAND sed -i 's/define ARCH_FPU 0/define ARCH_FPU 1/g' ${CMAKE_BINARY_DIR}/tmp_file/${chip_name}/freertos_risc_v_chip_specific_extensions.h
-        )
+            # COMMAND sed -i 's/12/20/g' ${CMAKE_BINARY_DIR}/tmp_file/${chip_name}/FreeRTOSConfig.h
+            # COMMAND sed -i '110c \ \ \  la t0, main' ${CMAKE_BINARY_DIR}/tmp_file/${chip_name}/FreeRTOSConfig.h
+        ) 
     elseif(${chip_name} STREQUAL "ch59x")
         # TODO
 
     else()
         message(FATAL_ERROR "${chip_name} is not support freertos!")
     endif()
-    target_link_libraries(${app_name} PUBLIC freertos)
+    target_link_libraries(${app_name} PRIVATE freertos)
     target_compile_definitions(${app_name} PRIVATE
         WCH_USE_LIB_FREERTOS
     )
@@ -181,7 +214,7 @@ function(enable_tflite app_name)
         string(REPLACE "-fsingle-precision-constant" "" MyLib_COMPILE_OPTIONS "${MyLib_COMPILE_OPTIONS}")
         set_target_properties(${app_name} PROPERTIES COMPILE_OPTIONS "${MyLib_COMPILE_OPTIONS}")
     endif()
-    target_link_libraries(${app_name} PUBLIC tflite printfloat)
+    target_link_libraries(${app_name} PRIVATE tflite printfloat)
     target_compile_definitions(${app_name} PRIVATE
         WCH_USE_LIB_TFLITE
     )
@@ -211,20 +244,31 @@ function(enable_wasm app_name)
     # set (SHARED_PLATFORM_CONFIG ${WCH_SDK_PATH}/libs/utensil/wasm/shared_platform.cmake)
     # include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
     # target_sources(${app_name} PRIVATE ${WAMR_RUNTIME_LIB_SOURCE})
-    target_link_libraries(${app_name} PUBLIC wasm_runtime)
+    target_link_libraries(${app_name} PRIVATE wasm_runtime)
     target_compile_definitions(${app_name} PRIVATE
         WCH_USE_LIB_WASM
     )
 endfunction(enable_wasm)
 
 
-function(enable_lvgl app_name)
+function(enable_lvgl8 app_name)
     target_compile_definitions(${app_name} PRIVATE
         LV_TICK_PERIOD_MS=1
+        LV_LVGL_H_INCLUDE_SIMPLE
     )
-    target_link_libraries(${app_name} PRIVATE lvgl)
+    target_link_libraries(${app_name} PRIVATE lvgl8)
     target_compile_definitions(${app_name} PRIVATE
         WCH_USE_LIB_LVGL
     )
-endfunction(enable_lvgl)
+endfunction(enable_lvgl8)
 
+function(enable_lvgl9 app_name)
+    target_compile_definitions(${app_name} PRIVATE
+        LV_TICK_PERIOD_MS=1
+        LV_LVGL_H_INCLUDE_SIMPLE
+    )
+    target_link_libraries(${app_name} PRIVATE lvgl9)
+    target_compile_definitions(${app_name} PRIVATE
+        WCH_USE_LIB_LVGL
+    )
+endfunction(enable_lvgl9)

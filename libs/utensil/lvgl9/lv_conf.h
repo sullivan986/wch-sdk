@@ -53,7 +53,7 @@
 
 #if LV_USE_STDLIB_MALLOC == LV_STDLIB_BUILTIN
     /*Size of the memory available for `lv_malloc()` in bytes (>= 2kB)*/
-    #define LV_MEM_SIZE (18 * 1024U)          /*[bytes]*/
+    #define LV_MEM_SIZE (64  * 1024U)          /*[bytes]*/
 
     /*Size of the memory expand for `lv_malloc()` in bytes*/
     #define LV_MEM_POOL_EXPAND_SIZE 0
@@ -117,7 +117,7 @@
 /* The stack size of the drawing thread.
  * NOTE: If FreeType or ThorVG is enabled, it is recommended to set it to 32KB or more.
  */
-#define LV_DRAW_THREAD_STACK_SIZE    (8 * 1024)   /*[bytes]*/
+#define LV_DRAW_THREAD_STACK_SIZE    (4 * 1024)   /*[bytes]*/
 
 #define LV_USE_DRAW_SW 1
 #if LV_USE_DRAW_SW == 1
@@ -134,7 +134,7 @@
 
     /* 0: use a simple renderer capable of drawing only simple rectangles with gradient, images, texts, and straight lines only
      * 1: use a complex renderer capable of drawing rounded corners, shadow, skew lines, and arcs too */
-    #define LV_DRAW_SW_COMPLEX          1
+    #define LV_DRAW_SW_COMPLEX          0
 
     #if LV_DRAW_SW_COMPLEX == 1
         /*Allow buffering some shadow calculation.
@@ -159,148 +159,16 @@
     #define LV_USE_DRAW_SW_COMPLEX_GRADIENTS    0
 #endif
 
-/* Use NXP's VG-Lite GPU on iMX RTxxx platforms. */
-#define LV_USE_DRAW_VGLITE 0
 
-#if LV_USE_DRAW_VGLITE
-    /* Enable blit quality degradation workaround recommended for screen's dimension > 352 pixels. */
-    #define LV_USE_VGLITE_BLIT_SPLIT 0
 
-    #if LV_USE_OS
-        /* Enable VGLite draw async. Queue multiple tasks and flash them once to the GPU. */
-        #define LV_USE_VGLITE_DRAW_ASYNC 1
-    #endif
-
-    /* Enable VGLite asserts. */
-    #define LV_USE_VGLITE_ASSERT 0
-#endif
-
-/* Use NXP's PXP on iMX RTxxx platforms. */
-#define LV_USE_DRAW_PXP 0
-
-#if LV_USE_DRAW_PXP
-    /* Enable PXP asserts. */
-    #define LV_USE_PXP_ASSERT 0
-#endif
-
-/* Use Renesas Dave2D on RA  platforms. */
-#define LV_USE_DRAW_DAVE2D 0
-
-/* Draw using cached SDL textures*/
-#define LV_USE_DRAW_SDL 0
-
-/* Use VG-Lite GPU. */
-#define LV_USE_DRAW_VG_LITE 0
-
-#if LV_USE_DRAW_VG_LITE
-/* Enable VG-Lite custom external 'gpu_init()' function */
-#define LV_VG_LITE_USE_GPU_INIT 0
-
-/* Enable VG-Lite assert. */
-#define LV_VG_LITE_USE_ASSERT 0
-
-/* VG-Lite flush commit trigger threshold. GPU will try to batch these many draw tasks. */
-#define LV_VG_LITE_FLUSH_MAX_COUNT 8
-
-/* Enable border to simulate shadow
- * NOTE: which usually improves performance,
- * but does not guarantee the same rendering quality as the software. */
-#define LV_VG_LITE_USE_BOX_SHADOW 0
-
-/* VG-Lite linear gradient image maximum cache number.
- * NOTE: The memory usage of a single gradient image is 4K bytes.
- */
-#define LV_VG_LITE_LINEAR_GRAD_CACHE_CNT 32
-
-/* VG-Lite radial gradient image maximum cache size.
- * NOTE: The memory usage of a single gradient image is radial grad radius * 4 bytes.
- */
-#define LV_VG_LITE_RADIAL_GRAD_CACHE_CNT 32
-
-#endif
 
 /*=======================
  * FEATURE CONFIGURATION
  *=======================*/
 
-/*-------------
- * Logging
- *-----------*/
-
-/*Enable the log module*/
-#define LV_USE_LOG 0
-#if LV_USE_LOG
-
-    /*How important log should be added:
-    *LV_LOG_LEVEL_TRACE       A lot of logs to give detailed information
-    *LV_LOG_LEVEL_INFO        Log important events
-    *LV_LOG_LEVEL_WARN        Log if something unwanted happened but didn't cause a problem
-    *LV_LOG_LEVEL_ERROR       Only critical issue, when the system may fail
-    *LV_LOG_LEVEL_USER        Only logs added by the user
-    *LV_LOG_LEVEL_NONE        Do not log anything*/
-    #define LV_LOG_LEVEL LV_LOG_LEVEL_WARN
-
-    /*1: Print the log with 'printf';
-    *0: User need to register a callback with `lv_log_register_print_cb()`*/
-    #define LV_LOG_PRINTF 0
-
-    /*Set callback to print the logs.
-     *E.g `my_print`. The prototype should be `void my_print(lv_log_level_t level, const char * buf)`
-     *Can be overwritten by `lv_log_register_print_cb`*/
-    //#define LV_LOG_PRINT_CB
-
-    /*1: Enable print timestamp;
-     *0: Disable print timestamp*/
-    #define LV_LOG_USE_TIMESTAMP 1
-
-    /*1: Print file and line number of the log;
-     *0: Do not print file and line number of the log*/
-    #define LV_LOG_USE_FILE_LINE 1
 
 
-    /*Enable/disable LV_LOG_TRACE in modules that produces a huge number of logs*/
-    #define LV_LOG_TRACE_MEM        1
-    #define LV_LOG_TRACE_TIMER      1
-    #define LV_LOG_TRACE_INDEV      1
-    #define LV_LOG_TRACE_DISP_REFR  1
-    #define LV_LOG_TRACE_EVENT      1
-    #define LV_LOG_TRACE_OBJ_CREATE 1
-    #define LV_LOG_TRACE_LAYOUT     1
-    #define LV_LOG_TRACE_ANIM       1
-    #define LV_LOG_TRACE_CACHE      1
 
-#endif  /*LV_USE_LOG*/
-
-/*-------------
- * Asserts
- *-----------*/
-
-/*Enable asserts if an operation is failed or an invalid data is found.
- *If LV_USE_LOG is enabled an error message will be printed on failure*/
-#define LV_USE_ASSERT_NULL          1   /*Check if the parameter is NULL. (Very fast, recommended)*/
-#define LV_USE_ASSERT_MALLOC        1   /*Checks is the memory is successfully allocated or no. (Very fast, recommended)*/
-#define LV_USE_ASSERT_STYLE         0   /*Check if the styles are properly initialized. (Very fast, recommended)*/
-#define LV_USE_ASSERT_MEM_INTEGRITY 0   /*Check the integrity of `lv_mem` after critical operations. (Slow)*/
-#define LV_USE_ASSERT_OBJ           0   /*Check the object's type and existence (e.g. not deleted). (Slow)*/
-
-/*Add a custom handler when assert happens e.g. to restart the MCU*/
-#define LV_ASSERT_HANDLER_INCLUDE <stdint.h>
-#define LV_ASSERT_HANDLER while(1);   /*Halt by default*/
-
-/*-------------
- * Debug
- *-----------*/
-
-/*1: Draw random colored rectangles over the redrawn areas*/
-#define LV_USE_REFR_DEBUG 0
-
-/*1: Draw a red overlay for ARGB layers and a green overlay for RGB layers*/
-#define LV_USE_LAYER_DEBUG 0
-
-/*1: Draw overlays with different colors for each draw_unit's tasks.
- *Also add the index number of the draw unit on white background.
- *For layers add the index number of the draw unit on black background.*/
-#define LV_USE_PARALLEL_DRAW_DEBUG 0
 
 /*-------------
  * Others
@@ -420,12 +288,12 @@
 #define LV_FONT_MONTSERRAT_16 0
 #define LV_FONT_MONTSERRAT_18 0
 #define LV_FONT_MONTSERRAT_20 0
-#define LV_FONT_MONTSERRAT_22 0
-#define LV_FONT_MONTSERRAT_24 0
+#define LV_FONT_MONTSERRAT_22 1
+#define LV_FONT_MONTSERRAT_24 1
 #define LV_FONT_MONTSERRAT_26 0
 #define LV_FONT_MONTSERRAT_28 0
 #define LV_FONT_MONTSERRAT_30 0
-#define LV_FONT_MONTSERRAT_32 0
+#define LV_FONT_MONTSERRAT_32 1
 #define LV_FONT_MONTSERRAT_34 0
 #define LV_FONT_MONTSERRAT_36 0
 #define LV_FONT_MONTSERRAT_38 0
@@ -996,13 +864,13 @@
  ====================*/
 
 /*Show some widget. It might be required to increase `LV_MEM_SIZE` */
-#define LV_USE_DEMO_WIDGETS 0
+#define LV_USE_DEMO_WIDGETS 1
 
 /*Demonstrate the usage of encoder and keyboard*/
 #define LV_USE_DEMO_KEYPAD_AND_ENCODER 0
 
 /*Benchmark your system*/
-#define LV_USE_DEMO_BENCHMARK 0
+#define LV_USE_DEMO_BENCHMARK 1
 
 /*Render test for each primitives. Requires at least 480x272 display*/
 #define LV_USE_DEMO_RENDER 0
@@ -1013,11 +881,11 @@
 /*Music player demo*/
 #define LV_USE_DEMO_MUSIC 0
 #if LV_USE_DEMO_MUSIC
-    #define LV_DEMO_MUSIC_SQUARE    0
-    #define LV_DEMO_MUSIC_LANDSCAPE 0
-    #define LV_DEMO_MUSIC_ROUND     0
-    #define LV_DEMO_MUSIC_LARGE     0
-    #define LV_DEMO_MUSIC_AUTO_PLAY 0
+    #define LV_DEMO_MUSIC_SQUARE    1
+    #define LV_DEMO_MUSIC_LANDSCAPE 1
+    #define LV_DEMO_MUSIC_ROUND     1
+    #define LV_DEMO_MUSIC_LARGE     1
+    #define LV_DEMO_MUSIC_AUTO_PLAY 1
 #endif
 
 /*Flex layout demo*/

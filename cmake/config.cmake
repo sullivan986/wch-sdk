@@ -183,6 +183,7 @@ function(config_ble_mcu app_name chip_name)
         ${APP_HAL_PATH}/BLE/LIB/LIBCH59xBLE.a
         ${APP_HAL_PATH}/SRC/StdPeriphDriver/libISP592.a
         utensil
+        #printfloat
     )
 
 
@@ -212,7 +213,8 @@ function(config_app app_name chip_name)
     string(FIND "${ARGN}" "enable_printf_uart3" APP_ENABLE_PRINT_UART3)
     string(FIND "${ARGN}" "enable_tflite" APP_ENABLE_TFLITE)
     string(FIND "${ARGN}" "enable_wasm" APP_ENABLE_WASM)
-    string(FIND "${ARGN}" "enable_lvgl" APP_ENABLE_LVGL)
+    string(FIND "${ARGN}" "enable_lvgl8" APP_ENABLE_LVGL8)
+    string(FIND "${ARGN}" "enable_lvgl9" APP_ENABLE_LVGL9)
 
     string(FIND "${ARGN}" "r32k_f288k" APP_RAM32K_FLASH288K)
     string(FIND "${ARGN}" "r64k_f256k" APP_RAM64K_FLASH256K)
@@ -291,8 +293,12 @@ function(config_app app_name chip_name)
         enable_tflite(${app_name})
     endif()
 
-    if(NOT ${APP_ENABLE_LVGL} EQUAL -1)
-        enable_lvgl(${app_name})
+    if(NOT ${APP_ENABLE_LVGL8} EQUAL -1)
+        enable_lvgl8(${app_name})
+    endif()
+
+    if(NOT ${APP_ENABLE_LVGL9} EQUAL -1)
+        enable_lvgl9(${app_name})
     endif()
     
     # if(NOT ${APP_ENABLE_WASM} EQUAL -1)

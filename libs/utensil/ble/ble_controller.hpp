@@ -1,5 +1,5 @@
-#ifndef BLE_PERIPHERAL_CONTROLLER
-#define BLE_PERIPHERAL_CONTROLLER
+#ifndef BLE_CONTROLLER_HPP
+#define BLE_CONTROLLER_HPP
 
 #include "CH59xBLE_LIB.h"
 #include "CH59x_common.h"
@@ -14,21 +14,20 @@
 #include <cstdio>
 #include <functional>
 #include <map>
+#include <queue>
 #include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 
-#define SBP_START_DEVICE_EVT 0x0001
-#define SBP_READ_RSSI_EVT 0x0004
-#define SBP_PARAM_UPDATE_EVT 0x0008
-#define SBP_PHY_UPDATE_EVT 0x0010
-// How often to perform read rssi event
-#define SBP_READ_RSSI_EVT_PERIOD 6400
+#define log_info(fmt, ...)                                                                                             \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        PRINT("[%d]" fmt "\r\n", TMOS_GetSystemClock() * 5 / 8, ##__VA_ARGS__);                                        \
+    } while (0)
+
 // Parameter update delay
 #define SBP_PARAM_UPDATE_DELAY 6400
-// PHY update delay
-#define SBP_PHY_UPDATE_DELAY 2400
 // What is the advertising interval when device is discoverable (units of 625us, 80=50ms)
 #define DEFAULT_ADVERTISING_INTERVAL 80
 // Limited discoverable mode advertises for 30.72s, and then stops
@@ -43,7 +42,11 @@
 // Supervision timeout value (units of 10ms, 100=1s)
 #define DEFAULT_DESIRED_CONN_TIMEOUT 100
 
-static uint8_t Peripheral_TaskID = INVALID_TASK_ID; // Task ID for internal task/event processing
+static uint8_t main_task_id = INVALID_TASK_ID; // Task ID for internal task/event processing
+// sys task id
+static uint16_t SBP_START_DEVICE_EVT_id;
+static uint16_t SBP_PARAM_UPDATE_EVT_id;
+
 // 蓝牙协议栈大小 6k
 __attribute__((aligned(4))) uint32_t MEM_BUF[BLE_MEMHEAP_SIZE / 4];
 static uint16_t peripheralMTU = ATT_MTU_SIZE;
@@ -57,12 +60,19 @@ typedef struct
 } peripheralConnItem_t;
 // Connection item list
 static peripheralConnItem_t peripheralConnList;
-// Profile
+// TMOS Main_Circulation
+std::queue<std::function<void(void)>> user_tmp_task;
+// std::vector<std::function<void(void)>> user_tmp_task;
 __HIGH_CODE
 __attribute__((noinline)) void Main_Circulation()
 {
     while (1)
     {
+        for (auto i = 0; i < user_tmp_task.size(); i++)
+        {
+            user_tmp_task.front()();
+            user_tmp_task.pop();
+        }
         TMOS_SystemProcess();
     }
 }
@@ -73,19 +83,19 @@ static void peripheralStateNotificationCB(gapRole_States_t newState, gapRoleEven
     switch (newState & GAPROLE_STATE_ADV_MASK)
     {
     case GAPROLE_STARTED:
-        PRINT("[ROLE] Initialized..\n\r");
+        log_info("[ROLE] Initialized..");
         break;
 
     case GAPROLE_ADVERTISING:
         if (pEvent->gap.opcode == GAP_LINK_TERMINATED_EVENT)
         {
             Peripheral_LinkTerminated(pEvent);
-            PRINT("[ROLE] Disconnected.. Reason:%x\n\r", pEvent->linkTerminate.reason);
-            PRINT("[ROLE] Advertising..\n\r");
+            log_info("[ROLE] Disconnected.. Reason:%x", pEvent->linkTerminate.reason);
+            log_info("[ROLE] Advertising..");
         }
         else if (pEvent->gap.opcode == GAP_MAKE_DISCOVERABLE_DONE_EVENT)
         {
-            PRINT("[ROLE] Advertising..\n\r");
+            log_info("[ROLE] Advertising..");
         }
         break;
 
@@ -93,56 +103,53 @@ static void peripheralStateNotificationCB(gapRole_States_t newState, gapRoleEven
         if (pEvent->gap.opcode == GAP_LINK_ESTABLISHED_EVENT)
         {
             Peripheral_LinkEstablished(pEvent);
-            PRINT("[ROLE] Connected..\n\r");
+            log_info("[ROLE] Connected..");
         }
         break;
 
     case GAPROLE_CONNECTED_ADV:
         if (pEvent->gap.opcode == GAP_MAKE_DISCOVERABLE_DONE_EVENT)
         {
-            PRINT("[ROLE] Connected Advertising..\n\r");
+            log_info("[ROLE] Connected Advertising..");
         }
         break;
 
     case GAPROLE_WAITING:
         if (pEvent->gap.opcode == GAP_END_DISCOVERABLE_DONE_EVENT)
         {
-            PRINT("[ROLE] Waiting for advertising..\n\r");
+            log_info("[ROLE] Waiting for advertising..");
         }
         else if (pEvent->gap.opcode == GAP_LINK_TERMINATED_EVENT)
         {
             Peripheral_LinkTerminated(pEvent);
-            PRINT("[ROLE] Disconnected.. Reason:%x\n\r", pEvent->linkTerminate.reason);
+            log_info("[ROLE] Disconnected.. Reason:%x", pEvent->linkTerminate.reason);
         }
         else if (pEvent->gap.opcode == GAP_LINK_ESTABLISHED_EVENT)
         {
             if (pEvent->gap.hdr.status != SUCCESS)
             {
-                PRINT("[ROLE] Waiting for advertising..\n\r");
+                log_info("[ROLE] Waiting for advertising..");
             }
             else
             {
-                PRINT("[ROLE] Error..\n\r");
+                log_info("[ROLE] Error..");
             }
         }
         else
         {
-            PRINT("[ROLE] Error..%x\n\r", pEvent->gap.opcode);
+            log_info("[ROLE] Error..%x", pEvent->gap.opcode);
         }
         break;
 
     case GAPROLE_ERROR:
-        PRINT("[ROLE] Error..\n\r");
+        log_info("[ROLE] Error..");
         break;
 
     default:
         break;
     }
 }
-static void peripheralRssiCB(uint16_t connHandle, int8_t rssi)
-{
-    PRINT("[RSSI] RSSI -%d dB Conn  %x \n\r", -rssi, connHandle);
-}
+
 static void peripheralParamUpdateCB(uint16_t connHandle, uint16_t connInterval, uint16_t connSlaveLatency,
                                     uint16_t connTimeout)
 {
@@ -152,19 +159,24 @@ static void peripheralParamUpdateCB(uint16_t connHandle, uint16_t connInterval, 
         peripheralConnList.connSlaveLatency = connSlaveLatency;
         peripheralConnList.connTimeout = connTimeout;
 
-        PRINT("[UPDATE] Update %x - Int %x \n\r", connHandle, connInterval);
+        log_info("[UPDATE] Update %x - Int %x ", connHandle, connInterval);
     }
     else
     {
-        PRINT("[UPDATE] ERR..\n\r");
+        log_info("[UPDATE] ERR..");
     }
 }
 
 static gapRolesCBs_t Peripheral_PeripheralCBs = {
     peripheralStateNotificationCB, // Profile State Change Callbacks
-    peripheralRssiCB,              // When a valid RSSI is read from controller (not used by application)
+    NULL,                          // When a valid RSSI is read from controller (not used by application)
     peripheralParamUpdateCB};
 
+static gapBondCBs_t Peripheral_BondMgrCBs = {
+    NULL, // Passcode callback (not used by application)
+    NULL, // Pairing / Bonding state Callback (not used by application)
+    NULL  // oob callback
+};
 // 以上是不用动的
 //
 //
@@ -176,10 +188,15 @@ struct characteristic_causality
     uint16_t uuid;
     uint8_t uuid_LO_HI[ATT_BT_UUID_SIZE];
 
+    bool flag_bcast = false;
     bool flag_read = false;
+    bool flag_write_no_rsp = false;
     bool flag_write = false;
     bool flag_notify = false;
     bool flag_indicate = false;
+    bool flag_authen = false;
+    bool flag_extended = false;
+
     gattCharCfg_t config[PERIPHERAL_MAX_CONNECTION];
     uint8_t cfg_table_value_index;
 
@@ -210,6 +227,8 @@ struct service_causality
 };
 static std::map<uint8_t, service_causality> service_map;
 
+static std::map<uint16_t, std::function<void(void)>> tmos_process_event_map;
+
 // 建立连接后在这里添加自定义task初始化
 static void Peripheral_LinkEstablished(gapRoleEvent_t *pEvent)
 {
@@ -218,7 +237,7 @@ static void Peripheral_LinkEstablished(gapRoleEvent_t *pEvent)
     if (peripheralConnList.connHandle != GAP_CONNHANDLE_INIT)
     {
         GAPRole_TerminateLink(pEvent->linkCmpl.connectionHandle);
-        PRINT("[LINKE] Connection max...\r\n");
+        log_info("[LINKE] Connection max...");
     }
     else
     {
@@ -228,10 +247,9 @@ static void Peripheral_LinkEstablished(gapRoleEvent_t *pEvent)
         peripheralConnList.connTimeout = event->connTimeout;
         peripheralMTU = ATT_MTU_SIZE;
         // Set timer for param update event
-        tmos_start_task(Peripheral_TaskID, SBP_PARAM_UPDATE_EVT, SBP_PARAM_UPDATE_DELAY);
+        tmos_start_task(main_task_id, SBP_PARAM_UPDATE_EVT_id, SBP_PARAM_UPDATE_DELAY);
         // Start read rssi
-        tmos_start_task(Peripheral_TaskID, SBP_READ_RSSI_EVT, SBP_READ_RSSI_EVT_PERIOD);
-        PRINT("[LINKE] Conn %x - Int %x \r\n", event->connectionHandle, event->connInterval);
+        log_info("[LINKE] Conn %x - Int %x ", event->connectionHandle, event->connInterval);
     }
 }
 
@@ -246,7 +264,7 @@ static void Peripheral_LinkTerminated(gapRoleEvent_t *pEvent)
         peripheralConnList.connInterval = 0;
         peripheralConnList.connSlaveLatency = 0;
         peripheralConnList.connTimeout = 0;
-        tmos_stop_task(Peripheral_TaskID, SBP_READ_RSSI_EVT);
+        // tmos_stop_task(main_task_id, SBP_READ_RSSI_EVT);
 
         // Restart advertising
         {
@@ -256,7 +274,7 @@ static void Peripheral_LinkTerminated(gapRoleEvent_t *pEvent)
     }
     else
     {
-        PRINT("[LINKT] ERR..\n\r");
+        log_info("[LINKT] ERR..");
     }
 }
 
@@ -284,13 +302,225 @@ static void simpleProfile_HandleConnStatusCB(uint16_t connHandle, uint8_t change
     }
 }
 
-class ble_peripheral_controller
+// instead simpleProfile_ReadAttrCB
+template <uint8_t ID>
+static bStatus_t service_read_callback(uint16_t connHandle, gattAttribute_t *pAttr, uint8_t *pValue, uint16_t *pLen,
+                                       uint16_t offset, uint16_t maxLen, uint8_t method)
+{
+    bStatus_t status = SUCCESS;
+
+    // Make sure it's not a blob operation (no attributes in the profile are long)
+    if (offset > 0)
+    {
+        return (ATT_ERR_ATTR_NOT_LONG);
+    }
+
+    if (pAttr->type.len == ATT_BT_UUID_SIZE)
+    {
+        // 16-bit UUID
+        uint16_t uuid = BUILD_UINT16(pAttr->type.uuid[0], pAttr->type.uuid[1]);
+
+        bool find_flag = false;
+        for (auto &&[characteristic_id, characteristic] : service_map[ID].characteristics)
+        {
+            if (uuid == characteristic.uuid)
+            {
+                if (maxLen > characteristic.buff.size())
+                {
+                    *pLen = characteristic.buff.size();
+                }
+                else
+                {
+                    *pLen = maxLen;
+                }
+                tmos_memcpy(pValue, pAttr->pValue, *pLen);
+                find_flag = true;
+            }
+        }
+
+        if (find_flag == false)
+        {
+            *pLen = 0;
+            status = ATT_ERR_ATTR_NOT_FOUND;
+        }
+    }
+    else
+    {
+        // 128-bit UUID
+        *pLen = 0;
+        status = ATT_ERR_INVALID_HANDLE;
+    }
+    return (status);
+}
+
+// instead simpleProfile_WriteAttrCB
+// lib CB 写 Callback
+template <uint8_t ID>
+static bStatus_t service_write_callback(uint16_t connHandle, gattAttribute_t *pAttr, uint8_t *pValue, uint16_t len,
+                                        uint16_t offset, uint8_t method)
+{
+    bStatus_t status = SUCCESS;
+
+    // If attribute permissions require authorization to write, return error
+    if (gattPermitAuthorWrite(pAttr->permissions))
+    {
+        // Insufficient authorization
+        return (ATT_ERR_INSUFFICIENT_AUTHOR);
+    }
+
+    if (pAttr->type.len == ATT_BT_UUID_SIZE)
+    {
+        // 16-bit UUID
+        uint16_t uuid = BUILD_UINT16(pAttr->type.uuid[0], pAttr->type.uuid[1]);
+
+        for (auto &&[characteristic_id, characteristic] : service_map[ID].characteristics)
+        {
+            if (uuid == characteristic.uuid)
+            {
+                // 自己处理收到的数据, 不一定要写给CHAR1, 写入最大不能超过 mtu - 3
+                //  Make sure it's not a blob oper
+                if (offset == 0)
+                {
+                    // if (len > characteristic.buff.size())
+                    // {
+                    //     status = ATT_ERR_INVALID_VALUE_SIZE;
+                    // }
+                }
+                else
+                {
+                    status = ATT_ERR_ATTR_NOT_LONG;
+                }
+
+                // Write the value
+                if (status == SUCCESS)
+                {
+                    //  tmos_memcpy(pAttr->pValue, pValue, characteristic.buff.size()); // 将recvdata 写入
+                    std::span<uint8_t> recv_data((uint8_t *)pValue, len);
+                    characteristic.write_callback_fun(characteristic.buff, recv_data);
+                }
+            }
+        }
+
+        if (uuid == GATT_CLIENT_CHAR_CFG_UUID)
+        {
+            if (pValue[0] == 1)
+            {
+                log_info("[CFG] notify enable");
+                status = GATTServApp_ProcessCCCWriteReq(connHandle, pAttr, pValue, len, offset, GATT_CLIENT_CFG_NOTIFY);
+            }
+            else if (pValue[0] == 2)
+            {
+                log_info("[CFG] indicate enable");
+                status =
+                    GATTServApp_ProcessCCCWriteReq(connHandle, pAttr, pValue, len, offset, GATT_CLIENT_CFG_INDICATE);
+            }
+            else if (pValue[0] == 0)
+            {
+                log_info("[CFG] indicate/notify disable");
+                status = GATTServApp_ProcessCCCWriteReq(connHandle, pAttr, pValue, len, offset, GATT_CFG_NO_OPERATION);
+            }
+            else
+            {
+                log_info("[CFG] cfg error recv: %d %d", pValue[0], pValue[1]);
+            }
+        }
+        else
+        {
+            status = ATT_ERR_ATTR_NOT_FOUND;
+        }
+    }
+    else
+    {
+        // 128-bit UUID
+        status = ATT_ERR_INVALID_HANDLE;
+    }
+    return (status);
+}
+
+// TMOS 处理函数
+static void Peripheral_ProcessTMOSMsg(tmos_event_hdr_t *pMsg)
+{
+    switch (pMsg->event)
+    {
+    case GAP_MSG_EVENT: {
+        auto pEvent = (gapRoleEvent_t *)pMsg;
+        switch (pEvent->gap.opcode)
+        {
+        case GAP_SCAN_REQUEST_EVENT: {
+            // log_info("[GAP] Receive scan req from %x %x %x %x %x %x  ..", pEvent->scanReqEvt.scannerAddr[0],
+            //       pEvent->scanReqEvt.scannerAddr[1], pEvent->scanReqEvt.scannerAddr[2],
+            //       pEvent->scanReqEvt.scannerAddr[3], pEvent->scanReqEvt.scannerAddr[4],
+            //       pEvent->scanReqEvt.scannerAddr[5]);
+            break;
+        }
+
+        case GAP_PHY_UPDATE_EVENT: {
+            log_info("[GAP] Phy update Rx:%x Tx:%x ..", pEvent->linkPhyUpdate.connRxPHYS,
+                     pEvent->linkPhyUpdate.connTxPHYS);
+            break;
+        }
+
+        default:
+            break;
+        }
+        break;
+    }
+
+    case GATT_MSG_EVENT: {
+        gattMsgEvent_t *pMsgEvent;
+
+        pMsgEvent = (gattMsgEvent_t *)pMsg;
+        if (pMsgEvent->method == ATT_MTU_UPDATED_EVENT)
+        {
+            peripheralMTU = pMsgEvent->msg.exchangeMTUReq.clientRxMTU;
+            log_info("[GATT] mtu exchange: %d", pMsgEvent->msg.exchangeMTUReq.clientRxMTU);
+        }
+        break;
+    }
+
+    default:
+        break;
+    }
+}
+
+// TMOS 处理函数
+static uint16_t Peripheral_ProcessEvent(uint8_t task_id, uint16_t events)
+{
+    //  VOID task_id; // TMOS required parameter that isn't used in this function
+
+    if (events & SYS_EVENT_MSG)
+    {
+        uint8_t *pMsg = tmos_msg_receive(main_task_id);
+        if (pMsg != NULL)
+        {
+            Peripheral_ProcessTMOSMsg((tmos_event_hdr_t *)pMsg);
+            // Release the TMOS message
+            tmos_msg_deallocate(pMsg);
+        }
+        // return unprocessed events
+        return (events ^ SYS_EVENT_MSG);
+    }
+
+    for (auto &&[event_id, event_func] : tmos_process_event_map)
+    {
+        if (events & event_id)
+        {
+            event_func();
+            return (events ^ event_id);
+        }
+    }
+    // Discard unknown events
+    return 0;
+}
+
+class ble_controller
 {
   public:
     // 增加 characteristic操作类
-    struct characteristic_operator
+    class characteristic_operator
     {
-        characteristic_operator(ble_peripheral_controller *parent, uint8_t p_service_id, uint8_t p_characteristic_id)
+      public:
+        characteristic_operator(ble_controller *parent, uint8_t p_service_id, uint8_t p_characteristic_id)
             : _parent(parent), _parent_service_id(p_service_id)
         {
             service_map[p_service_id].characteristics[p_characteristic_id] = {};
@@ -318,7 +548,7 @@ class ble_peripheral_controller
             return *this;
         }
 
-        characteristic_operator &set_write_cb_fun(
+        characteristic_operator &set_write_cb_func(
             std::function<void(std::vector<uint8_t> characteristic_buff, std::span<const uint8_t> recv_data)> func)
         {
             target_characteristic->write_callback_fun = func;
@@ -337,6 +567,12 @@ class ble_peripheral_controller
             return *this;
         }
 
+        characteristic_operator &enable_write_no_rsp()
+        {
+            target_characteristic->flag_write_no_rsp = true;
+            return *this;
+        }
+
         characteristic_operator &enable_notify()
         {
             target_characteristic->flag_notify = true;
@@ -351,51 +587,47 @@ class ble_peripheral_controller
 
         void notify(std::span<const uint8_t> data)
         {
-            bStatus_t status;
-            attHandleValueNoti_t noti;
-            if (data.size() > (peripheralMTU - 3))
+            // If notifications enabled
+            if (GATTServApp_ReadCharCfg(peripheralConnList.connHandle, target_characteristic->config) &
+                GATT_CLIENT_CFG_NOTIFY)
             {
-                PRINT("Too large noti data \r\n");
-                return;
-            }
-            noti.len = data.size();
-            noti.pValue =
-                (uint8_t *)GATT_bm_alloc(peripheralConnList.connHandle, ATT_HANDLE_VALUE_NOTI, noti.len, NULL, 0);
-            if (noti.pValue)
-            {
-                tmos_memcpy(noti.pValue, data.data(), noti.len);
+                bStatus_t status = SUCCESS;
+                attHandleValueNoti_t noti;
+                noti.len = data.size();
+                noti.pValue =
+                    (uint8_t *)GATT_bm_alloc(peripheralConnList.connHandle, ATT_HANDLE_VALUE_NOTI, noti.len, NULL, 0);
 
-                // If notifications enabled
-                PRINT("test1 \r\n");
-                if (GATTServApp_ReadCharCfg(peripheralConnList.connHandle, target_characteristic->config) &
-                    GATT_CLIENT_CFG_NOTIFY)
+                if (noti.pValue != NULL)
                 {
-                    PRINT("test12 \r\n");
-                    // Set the handle
-                    noti.handle = service_map[_parent_service_id]
-                                      .gatt_profile_table[target_characteristic->cfg_table_value_index]
-                                      .handle;
-
-                    // Send the notification
-                    status = GATT_Notification(peripheralConnList.connHandle, &noti, FALSE);
+                    tmos_memcpy(noti.pValue, data.data(), noti.len);
                 }
+                // Set the handle
+                noti.handle = service_map[_parent_service_id]
+                                  .gatt_profile_table[target_characteristic->cfg_table_value_index]
+                                  .handle;
+                // Send the notification
+                status = GATT_Notification(peripheralConnList.connHandle, &noti, FALSE);
                 if (status != SUCCESS)
                 {
-                    PRINT("test12 3\r\n");
-                    GATT_bm_free((gattMsg_t *)&noti, ATT_HANDLE_VALUE_NOTI);
+                    log_info("[notify] faild status:%d", status);
                 }
             }
+            else
+            {
+                log_info("[notify] notify is disable");
+            }
         }
+
         uint8_t _parent_service_id;
         characteristic_causality *target_characteristic;
-        ble_peripheral_controller *_parent;
+        ble_controller *_parent;
     };
 
     // 增加 service 操作类
-    struct service_operator
+    class service_operator
     {
-        service_operator(ble_peripheral_controller *parent, uint8_t service_id)
-            : _parent(parent), _service_id(service_id)
+      public:
+        service_operator(ble_controller *parent, uint8_t service_id) : _parent(parent), _service_id(service_id)
         {
             service_map[_service_id] = {};
             target_service = &service_map[_service_id];
@@ -430,27 +662,81 @@ class ble_peripheral_controller
 
         service_causality *target_service;
         uint8_t _service_id;
-        ble_peripheral_controller *_parent;
+        ble_controller *_parent;
     };
 
-    ble_peripheral_controller()
+    class ble_steady_timer
     {
+      public:
+        ble_steady_timer(ble_controller *bc) : _bc(bc)
+        {
+        }
+
+        void async_wait(std::function<void(void)> task)
+        {
+            task_id = _bc->add_tmos_event_func(task);
+        }
+
+        uint32_t expiry()
+        {
+            return TMOS_GetSystemClock() * 5 / 8;
+        }
+
+        void expires_at(uint32_t ms)
+        {
+            auto current_time = TMOS_GetSystemClock() * 5 / 8;
+            if (ms < current_time)
+            {
+                return;
+            }
+            auto real_ms = (ms - current_time) * 8 / 5;
+            user_tmp_task.push([&]() { tmos_start_task(main_task_id, task_id, real_ms); });
+        }
+
+        void expires_after(uint32_t ms)
+        {
+            auto real_ms = ms * 8 / 5;
+            user_tmp_task.push([&]() { tmos_start_task(main_task_id, task_id, real_ms); });
+        }
+
+        void cancel()
+        {
+            user_tmp_task.push([&]() { tmos_stop_task(main_task_id, task_id); });
+        }
+
+      private:
+        ble_controller *_bc;
+        uint16_t task_id;
+    };
+
+    ble_controller()
+    {
+        SBP_START_DEVICE_EVT_id = add_tmos_event_func([]() {
+            // Start the Device
+            GAPRole_PeripheralStartDevice(main_task_id, &Peripheral_BondMgrCBs, &Peripheral_PeripheralCBs);
+        });
+        SBP_PARAM_UPDATE_EVT_id = add_tmos_event_func([]() {
+            // Send connect param update request
+            GAPRole_PeripheralConnParamUpdateReq(peripheralConnList.connHandle, DEFAULT_DESIRED_MIN_CONN_INTERVAL,
+                                                 DEFAULT_DESIRED_MAX_CONN_INTERVAL, DEFAULT_DESIRED_SLAVE_LATENCY,
+                                                 DEFAULT_DESIRED_CONN_TIMEOUT, main_task_id);
+        });
     }
 
-    constexpr ble_peripheral_controller &set_att_name(std::string_view name)
+    constexpr ble_controller &set_att_name(std::string_view name)
     {
         att_device_name = name;
         return *this;
     }
 
-    constexpr ble_peripheral_controller &set_advart_uuid(uint16_t uuid)
+    constexpr ble_controller &set_advart_uuid(uint16_t uuid)
     {
-        advert_data.emplace_back(LO_UINT16(uuid));
-        advert_data.emplace_back(HI_UINT16(uuid));
+        advert_data[5] = LO_UINT16(uuid);
+        advert_data[6] = HI_UINT16(uuid);
         return *this;
     }
 
-    constexpr ble_peripheral_controller &set_scan_name(std::string_view name)
+    constexpr ble_controller &set_advart_name(std::string_view name)
     {
         scan_rsp_data.emplace_back(name.length() + 1);
         scan_rsp_data.emplace_back(GAP_ADTYPE_LOCAL_NAME_COMPLETE);
@@ -471,12 +757,12 @@ class ble_peripheral_controller
     }
 
     // TODO
-    constexpr ble_peripheral_controller &set_max_buff_size(size_t size)
+    constexpr ble_controller &set_max_buff_size(size_t size)
     {
         return *this;
     }
 
-    constexpr ble_peripheral_controller &set_max_connection(size_t size)
+    constexpr ble_controller &set_max_connection(size_t size)
     {
         return *this;
     }
@@ -488,6 +774,24 @@ class ble_peripheral_controller
         return std::move(_service_operator);
     }
 
+    uint16_t add_tmos_event_func(std::function<void(void)> task)
+    {
+        if (tmos_process_event_map.size() == 15)
+        {
+            log_info("[tmos] Error, the task queue is full.");
+            return 0x8000;
+        }
+        auto event_id = 1 << tmos_process_event_map.size();
+        log_info("[tmos] create tmos task id:%d", event_id);
+        tmos_process_event_map[event_id] = task;
+        return event_id;
+    }
+
+    ble_steady_timer create_steady_timer()
+    {
+        return std::move(ble_steady_timer(this));
+    }
+
     void start()
     {
         // 为每个 service 生成一张 profile table
@@ -495,7 +799,10 @@ class ble_peripheral_controller
         {
             for (auto &&[characteristic_id, characteristic] : service.characteristics)
             {
-                uint8_t permissions = 0;
+                if (characteristic.flag_bcast)
+                {
+                    characteristic.props |= GATT_PROP_BCAST;
+                }
                 if (characteristic.flag_read)
                 {
                     characteristic.props |= GATT_PROP_READ;
@@ -504,6 +811,10 @@ class ble_peripheral_controller
                 {
                     characteristic.props |= GATT_PROP_WRITE;
                 }
+                if (characteristic.flag_write_no_rsp)
+                {
+                    characteristic.props |= GATT_PROP_WRITE_NO_RSP;
+                }
                 if (characteristic.flag_notify)
                 {
                     characteristic.props |= GATT_PROP_NOTIFY;
@@ -511,6 +822,14 @@ class ble_peripheral_controller
                 if (characteristic.flag_indicate)
                 {
                     characteristic.props |= GATT_PROP_INDICATE;
+                }
+                if (characteristic.flag_authen)
+                {
+                    characteristic.props |= GATT_PROP_AUTHEN;
+                }
+                if (characteristic.flag_extended)
+                {
+                    characteristic.props |= GATT_PROP_EXTENDED;
                 }
 
                 // Declaration
@@ -523,20 +842,20 @@ class ble_peripheral_controller
                 service.gatt_profile_table.emplace_back(declaration_attr);
 
                 // Value
-                if (characteristic.flag_read)
-                {
-                    permissions |= GATT_PERMIT_READ;
-                }
-                if (characteristic.flag_write)
-                {
-                    permissions |= GATT_PERMIT_WRITE;
-                }
                 gattAttribute_t value_attr{
                     {ATT_BT_UUID_SIZE, characteristic.uuid_LO_HI}, /* type */
-                    permissions,                                   /* permissions */
+                    0,                                             /* permissions */
                     0,                                             /* handle */
                     (uint8_t *)characteristic.buff.data()          /* pValue */
                 };
+                if (characteristic.flag_read)
+                {
+                    value_attr.permissions |= GATT_PERMIT_READ;
+                }
+                if (characteristic.flag_write || characteristic.flag_write_no_rsp)
+                {
+                    value_attr.permissions |= GATT_PERMIT_WRITE;
+                }
                 service.gatt_profile_table.emplace_back(value_attr);
 
                 // configuration
@@ -548,22 +867,25 @@ class ble_peripheral_controller
                         0,                                     /* handle */
                         (uint8_t *)characteristic.config       /* pValue */
                     };
-                    characteristic.cfg_table_value_index = service.gatt_profile_table.size();
+                    characteristic.cfg_table_value_index = service.gatt_profile_table.size() - 1;
                     service.gatt_profile_table.emplace_back(configuration_attr);
                 }
 
                 // User Description
-                gattAttribute_t user_description_attr{
-                    {ATT_BT_UUID_SIZE, charUserDescUUID},        /* type */
-                    GATT_PERMIT_READ,                            /* permissions */
-                    0,                                           /* handle */
-                    (uint8_t *)characteristic.description.data() /* pValue */
-                };
-                service.gatt_profile_table.emplace_back(user_description_attr);
+                if (!characteristic.description.empty())
+                {
+                    gattAttribute_t user_description_attr{
+                        {ATT_BT_UUID_SIZE, charUserDescUUID},        /* type */
+                        GATT_PERMIT_READ,                            /* permissions */
+                        0,                                           /* handle */
+                        (uint8_t *)characteristic.description.data() /* pValue */
+                    };
+                    service.gatt_profile_table.emplace_back(user_description_attr);
+                }
             }
         }
 
-        PRINT("[START] ver_lib: %s\r\n", VER_LIB);
+        log_info("[START] ver_lib: %s", VER_LIB);
         CH59x_BLEInit();
         HAL_Init();
         GAPRole_PeripheralInit();
@@ -571,42 +893,20 @@ class ble_peripheral_controller
         Main_Circulation();
     }
 
-    // void notify(std::span<uint8_t> data)
-    // {
-    //     attHandleValueNoti_t noti;
-    //     if (data.size() > (peripheralMTU - 3))
-    //     {
-    //         PRINT("Too large noti\n\r");
-    //         return;
-    //     }
-    //     noti.len = data.size();
-    //     noti.pValue = (uint8_t *)GATT_bm_alloc(peripheralConnList.connHandle, ATT_HANDLE_VALUE_NOTI, noti.len,
-    //     NULL, 0); if (noti.pValue)
-    //     {
-    //         tmos_memcpy(noti.pValue, data.data(), noti.len);
-    //         if (simpleProfile_Notify(peripheralConnList.connHandle, &noti) != SUCCESS)
-    //         {
-    //             GATT_bm_free((gattMsg_t *)&noti, ATT_HANDLE_VALUE_NOTI);
-    //         }
-    //     }
-    // }
-
   private:
     // controller parameters
     std::string att_device_name;
     std::vector<uint8_t> scan_rsp_data;
-    std::vector<uint8_t> advert_data{
-        // GAP_ADTYPE_FLAGS: 每次发布广告 30 秒
-        0x02, // length of this data
-        GAP_ADTYPE_FLAGS, DEFAULT_DISCOVERABLE_MODE | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
-        // service UUID, to notify central devices what services are included
-        // in this peripheral
-        0x03,                  // length of this data
-        GAP_ADTYPE_16BIT_MORE, // some of the UUID's, but not all
-    };
+    std::vector<uint8_t> advert_data{      // GAP_ADTYPE_FLAGS: 每次发布广告 30 秒
+                                     0x02, // length of this data
+                                     GAP_ADTYPE_FLAGS, DEFAULT_DISCOVERABLE_MODE | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
+                                     // service UUID, to notify central devices what services are included
+                                     // in this peripheral
+                                     0x03,                  // length of this data
+                                     GAP_ADTYPE_16BIT_MORE, // some of the UUID's, but not all
+                                     LO_UINT16(0xffff), HI_UINT16(0xffff)};
 
     // CB struct
-
     gapRolesBroadcasterCBs_t Broadcaster_BroadcasterCBs = {
         NULL, // Not used in peripheral role
         NULL  // Receive scan request callback
@@ -615,7 +915,8 @@ class ble_peripheral_controller
     // func
     void Peripheral_Init()
     {
-        Peripheral_TaskID = TMOS_ProcessEventRegister(Peripheral_ProcessEvent);
+        main_task_id = TMOS_ProcessEventRegister(Peripheral_ProcessEvent);
+        // Setup the GAP Peripheral Role Profile
         {
             // Setup the GAP Peripheral Role Profile
             uint8_t initial_advertising_enable = TRUE;
@@ -636,6 +937,7 @@ class ble_peripheral_controller
             // Enable scan req notify
             GAP_SetParamValue(TGAP_ADV_SCAN_REQ_NOTIFY, ENABLE);
         }
+        // Setup the GAP Bond Manager
         {
             uint32_t passkey = 0; // passkey "000000"
             uint8_t pairMode = GAPBOND_PAIRING_MODE_WAIT_FOR_REQ;
@@ -652,7 +954,6 @@ class ble_peripheral_controller
         GGS_AddService(GATT_ALL_SERVICES);         // GAP
         GATTServApp_AddService(GATT_ALL_SERVICES); // GATT attributes
                                                    // Register GATT attribute list and CBs with GATT Server App
-
         service_init();
         // Set the GAP Characteristics
         GGS_SetParameter(GGS_DEVICE_NAME_ATT, att_device_name.length(), att_device_name.data());
@@ -665,8 +966,7 @@ class ble_peripheral_controller
 
         // Register receive scan request callback
         GAPRole_BroadcasterSetCB(&Broadcaster_BroadcasterCBs);
-
-        tmos_set_event(Peripheral_TaskID, SBP_START_DEVICE_EVT);
+        tmos_set_event(main_task_id, SBP_START_DEVICE_EVT_id);
     }
 
     // instead SimpleProfile_AddService
@@ -681,273 +981,10 @@ class ble_peripheral_controller
                     GATTServApp_InitCharCfg(INVALID_CONNHANDLE, characteristic.config);
                 }
             }
+            linkDB_Register(simpleProfile_HandleConnStatusCB);
             GATTServApp_RegisterService(service.gatt_profile_table.data(), service.gatt_profile_table.size(),
                                         GATT_MAX_ENCRYPT_KEY_SIZE, &service.service_profile_CBs);
         }
-
-        linkDB_Register(simpleProfile_HandleConnStatusCB);
-    }
-
-    // bStatus_t simpleProfile_Notify(uint16_t connHandle, attHandleValueNoti_t *pNoti)
-    // {
-    //     uint16_t value;
-    //     for (const auto &[id, characteristic] : characteristic_map)
-    //     {
-    //         if (characteristic.flag_indicate || characteristic.flag_notify)
-    //         {
-    //             value = GATTServApp_ReadCharCfg(connHandle, (gattCharCfg_t *)characteristic.config);
-    //         }
-    //     }
-
-    //     // If notifications enabled
-    //     if (value & GATT_CLIENT_CFG_NOTIFY)
-    //     {
-    //         // Set the handle
-    //         pNoti->handle = gatt_profile_table[2].handle;
-    //         // Send the notification
-    //         return GATT_Notification(connHandle, pNoti, FALSE);
-    //     }
-    //     return bleIncorrectMode;
-    // }
-
-    // instead simpleProfile_ReadAttrCB
-    template <uint8_t ID>
-    static bStatus_t service_read_callback(uint16_t connHandle, gattAttribute_t *pAttr, uint8_t *pValue, uint16_t *pLen,
-                                           uint16_t offset, uint16_t maxLen, uint8_t method)
-    {
-        bStatus_t status = SUCCESS;
-
-        // Make sure it's not a blob operation (no attributes in the profile are long)
-        if (offset > 0)
-        {
-            return (ATT_ERR_ATTR_NOT_LONG);
-        }
-
-        if (pAttr->type.len == ATT_BT_UUID_SIZE)
-        {
-            // 16-bit UUID
-            uint16_t uuid = BUILD_UINT16(pAttr->type.uuid[0], pAttr->type.uuid[1]);
-
-            bool find_flag = false;
-            for (auto &&[characteristic_id, characteristic] : service_map[ID].characteristics)
-            {
-                if (uuid == characteristic.uuid)
-                {
-                    if (maxLen > characteristic.buff.size())
-                    {
-                        *pLen = characteristic.buff.size();
-                    }
-                    else
-                    {
-                        *pLen = maxLen;
-                    }
-                    tmos_memcpy(pValue, pAttr->pValue, *pLen);
-                    find_flag = true;
-                }
-            }
-
-            if (find_flag == false)
-            {
-                *pLen = 0;
-                status = ATT_ERR_ATTR_NOT_FOUND;
-            }
-        }
-        else
-        {
-            // 128-bit UUID
-            *pLen = 0;
-            status = ATT_ERR_INVALID_HANDLE;
-        }
-        return (status);
-    }
-
-    // instead simpleProfile_WriteAttrCB
-    // lib CB 写 Callback
-    template <uint8_t ID>
-    static bStatus_t service_write_callback(uint16_t connHandle, gattAttribute_t *pAttr, uint8_t *pValue, uint16_t len,
-                                            uint16_t offset, uint8_t method)
-    {
-        bStatus_t status = SUCCESS;
-
-        // If attribute permissions require authorization to write, return error
-        if (gattPermitAuthorWrite(pAttr->permissions))
-        {
-            // Insufficient authorization
-            return (ATT_ERR_INSUFFICIENT_AUTHOR);
-        }
-
-        if (pAttr->type.len == ATT_BT_UUID_SIZE)
-        {
-            // 16-bit UUID
-            uint16_t uuid = BUILD_UINT16(pAttr->type.uuid[0], pAttr->type.uuid[1]);
-            bool find_flag = false;
-
-            for (auto &&[characteristic_id, characteristic] : service_map[ID].characteristics)
-            {
-                if (uuid == characteristic.uuid)
-                {
-                    // 自己处理收到的数据, 不一定要写给CHAR1, 写入最大不能超过 mtu (23 - 3)
-                    //  Make sure it's not a blob oper
-                    if (offset == 0)
-                    {
-                        if (len > characteristic.buff.size())
-                        {
-                            status = ATT_ERR_INVALID_VALUE_SIZE;
-                        }
-                    }
-                    else
-                    {
-                        status = ATT_ERR_ATTR_NOT_LONG;
-                    }
-
-                    // Write the value
-                    if (status == SUCCESS)
-                    {
-                        tmos_memcpy(pAttr->pValue, pValue, characteristic.buff.size());
-                        std::span<uint8_t> recv_data((uint8_t *)pValue, len);
-                        characteristic.write_callback_fun(characteristic.buff, recv_data);
-                    }
-                    find_flag = true;
-                }
-            }
-
-            if (find_flag == false)
-            {
-                if (uuid == GATT_CLIENT_CHAR_CFG_UUID)
-                {
-                    PRINT("[CFG] recv cfg: %d %d\r\n", pValue[0], pValue[1]);
-                    if (pValue[0] == 1)
-                    {
-                        status = GATTServApp_ProcessCCCWriteReq(connHandle, pAttr, pValue, len, offset,
-                                                                GATT_CLIENT_CFG_NOTIFY);
-                    }
-                    else if (pValue[0] == 2)
-                    {
-                        status = GATTServApp_ProcessCCCWriteReq(connHandle, pAttr, pValue, len, offset,
-                                                                GATT_CLIENT_CFG_INDICATE);
-                    }
-                    else if (pValue[0] == 0)
-                    {
-                        status = GATTServApp_ProcessCCCWriteReq(connHandle, pAttr, pValue, len, offset,
-                                                                GATT_CFG_NO_OPERATION);
-                    }
-                    else
-                    {
-                        PRINT("[CFG] cfg error recv: %d %d\r\n", pValue[0], pValue[1]);
-                    }
-                }
-                else
-                {
-                    status = ATT_ERR_ATTR_NOT_FOUND;
-                }
-            }
-        }
-        else
-        {
-            // 128-bit UUID
-            status = ATT_ERR_INVALID_HANDLE;
-        }
-        return (status);
-    }
-
-    // TMOS 处理函数
-    static void Peripheral_ProcessTMOSMsg(tmos_event_hdr_t *pMsg)
-    {
-        switch (pMsg->event)
-        {
-        case GAP_MSG_EVENT: {
-            auto pEvent = (gapRoleEvent_t *)pMsg;
-            switch (pEvent->gap.opcode)
-            {
-            case GAP_SCAN_REQUEST_EVENT: {
-                PRINT("[GAP] Receive scan req from %x %x %x %x %x %x  ..\r\n", pEvent->scanReqEvt.scannerAddr[0],
-                      pEvent->scanReqEvt.scannerAddr[1], pEvent->scanReqEvt.scannerAddr[2],
-                      pEvent->scanReqEvt.scannerAddr[3], pEvent->scanReqEvt.scannerAddr[4],
-                      pEvent->scanReqEvt.scannerAddr[5]);
-                break;
-            }
-
-            case GAP_PHY_UPDATE_EVENT: {
-                PRINT("[GAP] Phy update Rx:%x Tx:%x ..\r\n", pEvent->linkPhyUpdate.connRxPHYS,
-                      pEvent->linkPhyUpdate.connTxPHYS);
-                break;
-            }
-
-            default:
-                break;
-            }
-            break;
-        }
-
-        case GATT_MSG_EVENT: {
-            gattMsgEvent_t *pMsgEvent;
-
-            pMsgEvent = (gattMsgEvent_t *)pMsg;
-            if (pMsgEvent->method == ATT_MTU_UPDATED_EVENT)
-            {
-                peripheralMTU = pMsgEvent->msg.exchangeMTUReq.clientRxMTU;
-                PRINT("[GATT] mtu exchange: %d\r\n", pMsgEvent->msg.exchangeMTUReq.clientRxMTU);
-            }
-            break;
-        }
-
-        default:
-            break;
-        }
-    }
-
-    static uint16_t Peripheral_ProcessEvent(uint8_t task_id, uint16_t events)
-    {
-        //  VOID task_id; // TMOS required parameter that isn't used in this function
-
-        if (events & SYS_EVENT_MSG)
-        {
-            uint8_t *pMsg;
-
-            if ((pMsg = tmos_msg_receive(Peripheral_TaskID)) != NULL)
-            {
-                Peripheral_ProcessTMOSMsg((tmos_event_hdr_t *)pMsg);
-                // Release the TMOS message
-                tmos_msg_deallocate(pMsg);
-            }
-            // return unprocessed events
-            return (events ^ SYS_EVENT_MSG);
-        }
-
-        if (events & SBP_START_DEVICE_EVT)
-        {
-            // Start the Device
-            GAPRole_PeripheralStartDevice(Peripheral_TaskID, nullptr, &Peripheral_PeripheralCBs);
-            return (events ^ SBP_START_DEVICE_EVT);
-        }
-
-        if (events & SBP_PARAM_UPDATE_EVT)
-        {
-            // Send connect param update request
-            GAPRole_PeripheralConnParamUpdateReq(peripheralConnList.connHandle, DEFAULT_DESIRED_MIN_CONN_INTERVAL,
-                                                 DEFAULT_DESIRED_MAX_CONN_INTERVAL, DEFAULT_DESIRED_SLAVE_LATENCY,
-                                                 DEFAULT_DESIRED_CONN_TIMEOUT, Peripheral_TaskID);
-
-            return (events ^ SBP_PARAM_UPDATE_EVT);
-        }
-
-        if (events & SBP_PHY_UPDATE_EVT)
-        {
-            // start phy update
-            PRINT("[task] PHY Update %x...\n\r",
-                  GAPRole_UpdatePHY(peripheralConnList.connHandle, 0, GAP_PHY_BIT_LE_2M, GAP_PHY_BIT_LE_2M, 0));
-            return (events ^ SBP_PHY_UPDATE_EVT);
-        }
-
-        if (events & SBP_READ_RSSI_EVT)
-        {
-            GAPRole_ReadRssiCmd(peripheralConnList.connHandle);
-            tmos_start_task(Peripheral_TaskID, SBP_READ_RSSI_EVT, SBP_READ_RSSI_EVT_PERIOD);
-            return (events ^ SBP_READ_RSSI_EVT);
-        }
-
-        // Discard unknown events
-        return 0;
     }
 };
 

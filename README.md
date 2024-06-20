@@ -32,7 +32,7 @@ Clone the repository and download the toolchain.
 ```
 git clone --recursive https://github.com/sullivan986/wch-sdk
 cd wch-sdk
-source install_toolchains.sh
+source bootstrap.sh
 ```
 
 Wait for the download to complete and start using the hello_world example.

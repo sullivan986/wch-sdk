@@ -1,4 +1,4 @@
-# ble uart
+# ble easy peripheral
 ## support chip
 |support  chip|
 |:----------- |
