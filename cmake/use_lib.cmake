@@ -5,7 +5,6 @@ aux_source_directory(${LIB_FREERTOS_PATH} LIB_FREERTOS_SRC)
 target_include_directories(freertos INTERFACE
     ${LIB_FREERTOS_PATH}/include
     ${LIB_FREERTOS_PATH}/portable/GCC/RISC-V
-    ${WCH_SDK_PATH}/libs/utensil/freertos
     #${LIB_FREERTOS_PATH}/portable/GCC/RISC-V/chip_specific_extensions/RV32I_PFIC_no_extensions
 )
 
@@ -68,7 +67,6 @@ target_include_directories(tflite INTERFACE
     ${WCH_SDK_PATH}/libs/esp-tflite-micro/third_party/flatbuffers/include
     ${WCH_SDK_PATH}/libs/esp-tflite-micro/third_party/ruy
     ${WCH_SDK_PATH}/libs/esp-tflite-micro/third_party/kissfft
-    ${WCH_SDK_PATH}/libs/utensil/tflite
 )
 set(tflite_dir "${WCH_SDK_PATH}/libs/tflite-micro/tensorflow/lite")
 set(tflite_signal_dir "${WCH_SDK_PATH}/libs/tflite-micro/signal")
@@ -126,7 +124,6 @@ file(GLOB lvgl8_all_src
 target_include_directories(lvgl8 INTERFACE
     ${lvgl8_dir}
     ${lvgl8_dir}/demos
-    ${WCH_SDK_PATH}/libs/utensil/lvgl8
 )
 target_sources(lvgl8 INTERFACE
     ${lvgl8_all_src}
@@ -147,7 +144,6 @@ file(GLOB lvgl9_all_src
 target_include_directories(lvgl9 INTERFACE
     ${lvgl9_dir}
     ${lvgl9_dir}/demos
-    ${WCH_SDK_PATH}/libs/utensil/lvgl9
 )
 target_sources(lvgl9 INTERFACE
     ${lvgl9_all_src}
@@ -258,7 +254,7 @@ function(enable_lvgl8 app_name)
     )
     target_link_libraries(${app_name} PRIVATE lvgl8)
     target_compile_definitions(${app_name} PRIVATE
-        WCH_USE_LIB_LVGL
+        WCH_USE_LIB_LVGL8
     )
 endfunction(enable_lvgl8)
 
@@ -269,6 +265,6 @@ function(enable_lvgl9 app_name)
     )
     target_link_libraries(${app_name} PRIVATE lvgl9)
     target_compile_definitions(${app_name} PRIVATE
-        WCH_USE_LIB_LVGL
+        WCH_USE_LIB_LVGL9
     )
 endfunction(enable_lvgl9)

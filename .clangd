@@ -1,5 +1,5 @@
 CompileFlags:
-    Remove: [-march=rv32imafcxw, -march=rv32ecxw, -march=rv32imac]
+    Remove: [-march=rv32imafcxw, -march=rv32ecxw, -march=rv32imac,  -mcmodel=medany, -mabi=,-G,-mno-save-restore]
 
 Diagnostics:
-  Suppress: []
+  Suppress: [drv_unsupported_opt_for_target，pp_including_mainfile_in_preamble, unused-includes]

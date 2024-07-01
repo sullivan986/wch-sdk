@@ -46,8 +46,4 @@ Then you will see the app.hex file in the build directory.
 
 
 ## Notice
-<strong>warning</strong>: This repository can only be used under linux.
-
-<strong>warning</strong>: This repository is primarily focused on c++ support for a number of reasons.
-
-<strong>warning</strong>: This example is mainly based on ch32v307, please refer to the official EVT for other chip routines.
+<strong>warning</strong>: This repository can only be used under linux/C++.

@@ -5,14 +5,15 @@
 #include "CH59x_common.h"
 #include "CONFIG.h"
 #include "HAL.h"
+#include "base.h"
 #include "functional"
 #include "string"
-#include "utensil.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <functional>
+#include <initializer_list>
 #include <map>
 #include <queue>
 #include <span>
@@ -20,35 +21,29 @@
 #include <string_view>
 #include <vector>
 
-#define log_info(fmt, ...)                                                                                             \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        PRINT("[%d]" fmt "\r\n", TMOS_GetSystemClock() * 5 / 8, ##__VA_ARGS__);                                        \
-    } while (0)
+namespace ble_controller
+{
 
 // Parameter update delay
-#define SBP_PARAM_UPDATE_DELAY 6400
+const int SBP_PARAM_UPDATE_DELAY = 6400;
 // What is the advertising interval when device is discoverable (units of 625us, 80=50ms)
-#define DEFAULT_ADVERTISING_INTERVAL 80
+const int DEFAULT_ADVERTISING_INTERVAL = 80;
 // Limited discoverable mode advertises for 30.72s, and then stops
 // General discoverable mode advertises indefinitely
-#define DEFAULT_DISCOVERABLE_MODE GAP_ADTYPE_FLAGS_GENERAL
+const int DEFAULT_DISCOVERABLE_MODE = GAP_ADTYPE_FLAGS_GENERAL;
 // Minimum connection interval (units of 1.25ms, 6=7.5ms)
-#define DEFAULT_DESIRED_MIN_CONN_INTERVAL 6
+const int DEFAULT_DESIRED_MIN_CONN_INTERVAL = 6;
 // Maximum connection interval (units of 1.25ms, 100=125ms)
-#define DEFAULT_DESIRED_MAX_CONN_INTERVAL 100
+const int DEFAULT_DESIRED_MAX_CONN_INTERVAL = 100;
 // Slave latency to use parameter update
-#define DEFAULT_DESIRED_SLAVE_LATENCY 0
+const int DEFAULT_DESIRED_SLAVE_LATENCY = 0;
 // Supervision timeout value (units of 10ms, 100=1s)
-#define DEFAULT_DESIRED_CONN_TIMEOUT 100
+const int DEFAULT_DESIRED_CONN_TIMEOUT = 100;
 
 static uint8_t main_task_id = INVALID_TASK_ID; // Task ID for internal task/event processing
 // sys task id
 static uint16_t SBP_START_DEVICE_EVT_id;
 static uint16_t SBP_PARAM_UPDATE_EVT_id;
-
-// 蓝牙协议栈大小 6k
-__attribute__((aligned(4))) uint32_t MEM_BUF[BLE_MEMHEAP_SIZE / 4];
 static uint16_t peripheralMTU = ATT_MTU_SIZE;
 //  characteristic value has changed callback
 typedef struct
@@ -76,6 +71,7 @@ __attribute__((noinline)) void Main_Circulation()
         TMOS_SystemProcess();
     }
 }
+
 static void Peripheral_LinkTerminated(gapRoleEvent_t *pEvent);
 static void Peripheral_LinkEstablished(gapRoleEvent_t *pEvent);
 static void peripheralStateNotificationCB(gapRole_States_t newState, gapRoleEvent_t *pEvent)
@@ -178,11 +174,8 @@ static gapBondCBs_t Peripheral_BondMgrCBs = {
     NULL  // oob callback
 };
 // 以上是不用动的
-//
-//
-//
-//
 
+// Peripheral state
 struct characteristic_causality
 {
     uint16_t uuid;
@@ -227,6 +220,13 @@ struct service_causality
 };
 static std::map<uint8_t, service_causality> service_map;
 
+// Broadcast state
+struct broadcast_causality
+{
+};
+static std::map<uint8_t, broadcast_causality> broadcast_map;
+
+// Tmos
 static std::map<uint16_t, std::function<void(void)>> tmos_process_event_map;
 
 // 建立连接后在这里添加自定义task初始化
@@ -333,6 +333,7 @@ static bStatus_t service_read_callback(uint16_t connHandle, gattAttribute_t *pAt
                 {
                     *pLen = maxLen;
                 }
+                log_info("service[%d] char[%d] being read", ID, characteristic_id);
                 tmos_memcpy(pValue, pAttr->pValue, *pLen);
                 find_flag = true;
             }
@@ -379,14 +380,7 @@ static bStatus_t service_write_callback(uint16_t connHandle, gattAttribute_t *pA
             {
                 // 自己处理收到的数据, 不一定要写给CHAR1, 写入最大不能超过 mtu - 3
                 //  Make sure it's not a blob oper
-                if (offset == 0)
-                {
-                    // if (len > characteristic.buff.size())
-                    // {
-                    //     status = ATT_ERR_INVALID_VALUE_SIZE;
-                    // }
-                }
-                else
+                if (offset != 0)
                 {
                     status = ATT_ERR_ATTR_NOT_LONG;
                 }
@@ -394,6 +388,7 @@ static bStatus_t service_write_callback(uint16_t connHandle, gattAttribute_t *pA
                 // Write the value
                 if (status == SUCCESS)
                 {
+                    log_info("service[%d] char[%d] being write", ID, characteristic_id);
                     //  tmos_memcpy(pAttr->pValue, pValue, characteristic.buff.size()); // 将recvdata 写入
                     std::span<uint8_t> recv_data((uint8_t *)pValue, len);
                     characteristic.write_callback_fun(characteristic.buff, recv_data);
@@ -438,69 +433,27 @@ static bStatus_t service_write_callback(uint16_t connHandle, gattAttribute_t *pA
 }
 
 // TMOS 处理函数
-static void Peripheral_ProcessTMOSMsg(tmos_event_hdr_t *pMsg)
+static uint16_t TMOS_process_event(uint8_t task_id, uint16_t events)
 {
-    switch (pMsg->event)
-    {
-    case GAP_MSG_EVENT: {
-        auto pEvent = (gapRoleEvent_t *)pMsg;
-        switch (pEvent->gap.opcode)
-        {
-        case GAP_SCAN_REQUEST_EVENT: {
-            // log_info("[GAP] Receive scan req from %x %x %x %x %x %x  ..", pEvent->scanReqEvt.scannerAddr[0],
-            //       pEvent->scanReqEvt.scannerAddr[1], pEvent->scanReqEvt.scannerAddr[2],
-            //       pEvent->scanReqEvt.scannerAddr[3], pEvent->scanReqEvt.scannerAddr[4],
-            //       pEvent->scanReqEvt.scannerAddr[5]);
-            break;
-        }
-
-        case GAP_PHY_UPDATE_EVENT: {
-            log_info("[GAP] Phy update Rx:%x Tx:%x ..", pEvent->linkPhyUpdate.connRxPHYS,
-                     pEvent->linkPhyUpdate.connTxPHYS);
-            break;
-        }
-
-        default:
-            break;
-        }
-        break;
-    }
-
-    case GATT_MSG_EVENT: {
-        gattMsgEvent_t *pMsgEvent;
-
-        pMsgEvent = (gattMsgEvent_t *)pMsg;
-        if (pMsgEvent->method == ATT_MTU_UPDATED_EVENT)
-        {
-            peripheralMTU = pMsgEvent->msg.exchangeMTUReq.clientRxMTU;
-            log_info("[GATT] mtu exchange: %d", pMsgEvent->msg.exchangeMTUReq.clientRxMTU);
-        }
-        break;
-    }
-
-    default:
-        break;
-    }
-}
-
-// TMOS 处理函数
-static uint16_t Peripheral_ProcessEvent(uint8_t task_id, uint16_t events)
-{
-    //  VOID task_id; // TMOS required parameter that isn't used in this function
-
     if (events & SYS_EVENT_MSG)
     {
-        uint8_t *pMsg = tmos_msg_receive(main_task_id);
+        auto pMsg = tmos_msg_receive(main_task_id);
         if (pMsg != NULL)
         {
-            Peripheral_ProcessTMOSMsg((tmos_event_hdr_t *)pMsg);
+            // gatt
+            gattMsgEvent_t *gatt_msg_evt = (gattMsgEvent_t *)pMsg;
+            if (gatt_msg_evt->method == ATT_MTU_UPDATED_EVENT)
+            {
+                peripheralMTU = gatt_msg_evt->msg.exchangeMTUReq.clientRxMTU;
+                log_info("[GATT] mtu exchange: %d", gatt_msg_evt->msg.exchangeMTUReq.clientRxMTU);
+            }
+
             // Release the TMOS message
             tmos_msg_deallocate(pMsg);
         }
         // return unprocessed events
         return (events ^ SYS_EVENT_MSG);
     }
-
     for (auto &&[event_id, event_func] : tmos_process_event_map)
     {
         if (events & event_id)
@@ -516,6 +469,13 @@ static uint16_t Peripheral_ProcessEvent(uint8_t task_id, uint16_t events)
 class ble_controller
 {
   public:
+    enum class BleState
+    {
+        peripheral,
+        broadcaster,
+        central
+    } ble_state;
+
     // 增加 characteristic操作类
     class characteristic_operator
     {
@@ -711,6 +671,11 @@ class ble_controller
 
     ble_controller()
     {
+    }
+
+    ble_controller &set_mode_peripheral()
+    {
+        ble_state = BleState::peripheral;
         SBP_START_DEVICE_EVT_id = add_tmos_event_func([]() {
             // Start the Device
             GAPRole_PeripheralStartDevice(main_task_id, &Peripheral_BondMgrCBs, &Peripheral_PeripheralCBs);
@@ -721,6 +686,28 @@ class ble_controller
                                                  DEFAULT_DESIRED_MAX_CONN_INTERVAL, DEFAULT_DESIRED_SLAVE_LATENCY,
                                                  DEFAULT_DESIRED_CONN_TIMEOUT, main_task_id);
         });
+
+        advert_data_group.emplace_back(
+            get_uint8_vector({GAP_ADTYPE_FLAGS, DEFAULT_DISCOVERABLE_MODE | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED}));
+
+        return *this;
+    }
+
+    ble_controller &set_mode_broadcaster()
+    {
+        ble_state = BleState::broadcaster;
+        SBP_START_DEVICE_EVT_id = add_tmos_event_func([&]() {
+            // Start the Device
+            GAPRole_BroadcasterStartDevice(&Broadcaster_BroadcasterCBs);
+        });
+
+        advert_data_group.emplace_back(get_uint8_vector({GAP_ADTYPE_FLAGS, GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED}));
+
+        advert_data_group.emplace_back(get_uint8_vector({GAP_ADTYPE_MANUFACTURER_SPECIFIC, 'b', 'l', 'e'}));
+
+        advert_data_group.emplace_back(get_uint8_vector({GAP_ADTYPE_LOCAL_NAME_SHORT, 'a', 'b', 'c'}));
+
+        return *this;
     }
 
     constexpr ble_controller &set_att_name(std::string_view name)
@@ -729,40 +716,57 @@ class ble_controller
         return *this;
     }
 
-    constexpr ble_controller &set_advart_uuid(uint16_t uuid)
+    constexpr ble_controller &set_mac(std::string_view name)
     {
-        advert_data[5] = LO_UINT16(uuid);
-        advert_data[6] = HI_UINT16(uuid);
         return *this;
     }
 
-    constexpr ble_controller &set_advart_name(std::string_view name)
+    ble_controller &set_advart_uuid(uint16_t uuid)
     {
-        scan_rsp_data.emplace_back(name.length() + 1);
-        scan_rsp_data.emplace_back(GAP_ADTYPE_LOCAL_NAME_COMPLETE);
+        advert_data_group.emplace_back(get_uint8_vector({0x03,                  // length of this data
+                                                         GAP_ADTYPE_16BIT_MORE, // some of the UUID's, but not all
+                                                         (uint8_t)LO_UINT16(uuid), (uint8_t)HI_UINT16(uuid)}));
+
+        return *this;
+    }
+
+    ble_controller &set_scan_rsp_name(std::string_view name)
+    {
+        std::vector<uint8_t> tmp_vector = {(uint8_t)(name.length() + 1), GAP_ADTYPE_LOCAL_NAME_COMPLETE};
         for (auto &i : name)
         {
-            scan_rsp_data.emplace_back(i);
+            tmp_vector.emplace_back(i);
         }
-        scan_rsp_data.emplace_back(0x05);
-        scan_rsp_data.emplace_back(GAP_ADTYPE_SLAVE_CONN_INTERVAL_RANGE);
-        scan_rsp_data.emplace_back(LO_UINT16(DEFAULT_DESIRED_MIN_CONN_INTERVAL));
-        scan_rsp_data.emplace_back(HI_UINT16(DEFAULT_DESIRED_MIN_CONN_INTERVAL));
-        scan_rsp_data.emplace_back(LO_UINT16(DEFAULT_DESIRED_MAX_CONN_INTERVAL));
-        scan_rsp_data.emplace_back(HI_UINT16(DEFAULT_DESIRED_MAX_CONN_INTERVAL));
-        scan_rsp_data.emplace_back(0x02);
-        scan_rsp_data.emplace_back(GAP_ADTYPE_POWER_LEVEL);
-        scan_rsp_data.emplace_back(0);
+        scan_rsp_data_group.emplace_back(tmp_vector);
+
+        switch (ble_state)
+        {
+        case BleState::peripheral:
+            scan_rsp_data_group.emplace_back(get_uint8_vector(
+                {GAP_ADTYPE_SLAVE_CONN_INTERVAL_RANGE, LO_UINT16(DEFAULT_DESIRED_MIN_CONN_INTERVAL),
+                 HI_UINT16(DEFAULT_DESIRED_MIN_CONN_INTERVAL), LO_UINT16(DEFAULT_DESIRED_MAX_CONN_INTERVAL),
+                 HI_UINT16(DEFAULT_DESIRED_MAX_CONN_INTERVAL)}));
+            break;
+        case BleState::broadcaster:
+            break;
+        case BleState::central:
+            break;
+        }
+        scan_rsp_data_group.emplace_back(get_uint8_vector({GAP_ADTYPE_POWER_LEVEL, 0}));
         return *this;
     }
 
     // TODO
-    constexpr ble_controller &set_max_buff_size(size_t size)
+    constexpr ble_controller &set_mtu_size(size_t size)
     {
         return *this;
     }
 
     constexpr ble_controller &set_max_connection(size_t size)
+    {
+        return *this;
+    }
+    constexpr ble_controller &set_mac()
     {
         return *this;
     }
@@ -790,6 +794,12 @@ class ble_controller
     ble_steady_timer create_steady_timer()
     {
         return std::move(ble_steady_timer(this));
+    }
+
+    void chang_broadcast_content(std::span<const uint8_t> data)
+    {
+        uint8_t initial_advertising_enable = FALSE;
+        GAPRole_SetParameter(GAPROLE_ADVERT_ENABLED, sizeof(uint8_t), &initial_advertising_enable); // 关闭广播包
     }
 
     void start()
@@ -888,23 +898,47 @@ class ble_controller
         log_info("[START] ver_lib: %s", VER_LIB);
         CH59x_BLEInit();
         HAL_Init();
-        GAPRole_PeripheralInit();
-        Peripheral_Init();
+
+        for (auto &&i1 : scan_rsp_data_group)
+        {
+            for (auto &&i2 : i1)
+            {
+                scan_rsp_data.emplace_back(i2);
+            }
+        }
+        for (auto &&i1 : advert_data_group)
+        {
+            for (auto &&i2 : i1)
+            {
+                advert_data.emplace_back(i2);
+            }
+        }
+        scan_rsp_data_group.clear();
+        advert_data_group.clear();
+
+        switch (ble_state)
+        {
+        case BleState::peripheral:
+            GAPRole_PeripheralInit();
+            Peripheral_Init();
+            break;
+        case BleState::broadcaster:
+            GAPRole_BroadcasterInit();
+            Broadcaster_Init();
+            break;
+        case BleState::central:
+            break;
+        }
         Main_Circulation();
     }
 
   private:
     // controller parameters
     std::string att_device_name;
+    std::vector<std::vector<uint8_t>> scan_rsp_data_group;
+    std::vector<std::vector<uint8_t>> advert_data_group;
     std::vector<uint8_t> scan_rsp_data;
-    std::vector<uint8_t> advert_data{      // GAP_ADTYPE_FLAGS: 每次发布广告 30 秒
-                                     0x02, // length of this data
-                                     GAP_ADTYPE_FLAGS, DEFAULT_DISCOVERABLE_MODE | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
-                                     // service UUID, to notify central devices what services are included
-                                     // in this peripheral
-                                     0x03,                  // length of this data
-                                     GAP_ADTYPE_16BIT_MORE, // some of the UUID's, but not all
-                                     LO_UINT16(0xffff), HI_UINT16(0xffff)};
+    std::vector<uint8_t> advert_data;
 
     // CB struct
     gapRolesBroadcasterCBs_t Broadcaster_BroadcasterCBs = {
@@ -915,7 +949,7 @@ class ble_controller
     // func
     void Peripheral_Init()
     {
-        main_task_id = TMOS_ProcessEventRegister(Peripheral_ProcessEvent);
+        main_task_id = TMOS_ProcessEventRegister(TMOS_process_event);
         // Setup the GAP Peripheral Role Profile
         {
             // Setup the GAP Peripheral Role Profile
@@ -957,15 +991,37 @@ class ble_controller
         service_init();
         // Set the GAP Characteristics
         GGS_SetParameter(GGS_DEVICE_NAME_ATT, att_device_name.length(), att_device_name.data());
-
         // Init Connection Item
         peripheralConnList.connHandle = GAP_CONNHANDLE_INIT;
         peripheralConnList.connInterval = 0;
         peripheralConnList.connSlaveLatency = 0;
         peripheralConnList.connTimeout = 0;
-
         // Register receive scan request callback
         GAPRole_BroadcasterSetCB(&Broadcaster_BroadcasterCBs);
+        tmos_set_event(main_task_id, SBP_START_DEVICE_EVT_id);
+    }
+
+    void Broadcaster_Init()
+    {
+        main_task_id = TMOS_ProcessEventRegister(TMOS_process_event);
+        // Setup the GAP Broadcaster Role Profile
+        {
+            // Device starts advertising upon initialization
+            uint8_t initial_advertising_enable = TRUE;
+            uint8_t initial_adv_event_type = GAP_ADTYPE_ADV_NONCONN_IND;
+            // Set the GAP Role Parameters
+            GAPRole_SetParameter(GAPROLE_ADVERT_ENABLED, sizeof(uint8_t), &initial_advertising_enable);
+            GAPRole_SetParameter(GAPROLE_ADV_EVENT_TYPE, sizeof(uint8_t), &initial_adv_event_type);
+            GAPRole_SetParameter(GAPROLE_SCAN_RSP_DATA, scan_rsp_data.size(), scan_rsp_data.data());
+            GAPRole_SetParameter(GAPROLE_ADVERT_DATA, advert_data.size(), advert_data.data());
+        }
+        // Set advertising interval
+        {
+            uint16_t advInt = DEFAULT_ADVERTISING_INTERVAL;
+            GAP_SetParamValue(TGAP_DISC_ADV_INT_MIN, advInt);
+            GAP_SetParamValue(TGAP_DISC_ADV_INT_MAX, advInt);
+        }
+        // Setup a delayed profile startup
         tmos_set_event(main_task_id, SBP_START_DEVICE_EVT_id);
     }
 
@@ -986,6 +1042,19 @@ class ble_controller
                                         GATT_MAX_ENCRYPT_KEY_SIZE, &service.service_profile_CBs);
         }
     }
+
+    std::vector<uint8_t> get_uint8_vector(std::initializer_list<uint8_t> data)
+    {
+        std::vector<uint8_t> tmp;
+        tmp.emplace_back(data.size());
+        for (auto &&i : data)
+        {
+            tmp.emplace_back(i);
+        }
+        return std::move(tmp);
+    }
 };
+
+} // namespace ble_controller
 
 #endif

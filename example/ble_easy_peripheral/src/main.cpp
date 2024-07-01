@@ -5,11 +5,12 @@ int main()
     ch_init();
     log_info("Start @ChipID=%02X\r\n", R8_CHIP_ID);
 
-    ble_controller bc;
+    ble_controller::ble_controller bc;
     bc.set_att_name("att_device")
+        .set_mode_peripheral()
         .set_advart_uuid(0xfff0)
-        .set_scan_name("test_01")
-        .set_max_buff_size(20)
+        .set_scan_rsp_name("test_01")
+        .set_mtu_size(20)
         .set_max_connection(1);
 
     auto service_1 = bc.add_service_by_id<0>().set_uuid(0xff00);
@@ -33,7 +34,7 @@ int main()
         .set_value_size(4)
         .enable_read()
         .enable_write()
-        .set_write_cb_fun([&](std::vector<uint8_t> characteristic_buff, std::span<const uint8_t> recv_data) {
+        .set_write_cb_func([&](std::vector<uint8_t> characteristic_buff, std::span<const uint8_t> recv_data) {
             log_info("recv data length %d:", recv_data.size());
             for (auto &&data : recv_data)
             {
@@ -71,6 +72,9 @@ int main()
         log_info("this is timer 2");
         timer2.expires_after(2000);
     });
+
+    timer1.expires_at(10000);
+    timer2.expires_at(5000);
 
     bc.start();
 }

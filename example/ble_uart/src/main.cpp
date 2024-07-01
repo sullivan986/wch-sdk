@@ -56,11 +56,12 @@ int main()
     log_info("Start @ChipID=%02X", R8_CHIP_ID);
     uart3_init(115200);
 
-    auto bc = ble_controller()
+    auto bc = ble_controller::ble_controller()
+                  .set_mode_peripheral()
                   .set_att_name("att_device")
                   .set_advart_uuid(0xfff0)
-                  .set_advart_name("ch592_ble_uart") // needy
-                  .set_max_buff_size(20)
+                  .set_scan_rsp_name("ch592_ble_uart") // needy
+                  .set_mtu_size(20)
                   .set_max_connection(1);
 
     auto service_1 = bc.add_service_by_id<0>().set_uuid(0xff00);

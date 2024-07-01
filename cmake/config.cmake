@@ -26,9 +26,11 @@ function(config_common_mcu app_name chip_name)
 
     # compile options
     aux_source_directory(${APP_HAL_PATH}/SRC/Peripheral/src APP_ALL_SRC_2)
+    aux_source_directory(${WCH_SDK_PATH}/hal/${chip_name} APP_ALL_SRC_3)
     target_include_directories(${app_name} PRIVATE
         ${APP_HAL_PATH}/SRC/Peripheral/inc
         ${APP_HAL_PATH}/SRC/Core
+        ${WCH_SDK_PATH}/hal/${chip_name}
     )
 
     target_compile_options(${app_name} PRIVATE
@@ -65,6 +67,7 @@ function(config_common_mcu app_name chip_name)
 
     target_sources(${app_name} PRIVATE
         ${APP_ALL_SRC_2}
+        ${APP_ALL_SRC_3}
         ${APP_HAL_PATH}/SRC/Core/core_riscv.c
         ${CMAKE_BINARY_DIR}/tmp_file/${chip_name}/${APP_STARTUP_FILE}
     )
@@ -139,12 +142,14 @@ function(config_ble_mcu app_name chip_name)
 
     # compile options
     aux_source_directory(${APP_HAL_PATH}/SRC/StdPeriphDriver APP_ALL_SRC_2)
-    aux_source_directory(${APP_HAL_PATH}/BLE/HAL/ APP_ALL_SRC_3)
+    aux_source_directory(${APP_HAL_PATH}/BLE/HAL APP_ALL_SRC_3)
+    aux_source_directory(${WCH_SDK_PATH}/hal/${chip_name} APP_ALL_SRC_4)
     target_include_directories(${app_name} PRIVATE
         ${APP_HAL_PATH}/SRC/StdPeriphDriver/inc
         ${APP_HAL_PATH}/SRC/RVMSIS
         ${APP_HAL_PATH}/BLE/HAL/include
         ${APP_HAL_PATH}/BLE/LIB
+        ${WCH_SDK_PATH}/hal/${chip_name}
     )
 
     target_compile_options(${app_name} PRIVATE
@@ -159,6 +164,8 @@ function(config_ble_mcu app_name chip_name)
         -fdata-sections
         -fno-common # Disable implicit sharing of global variables.
         -D${APP_SERIES_NAME}
+        -DBLE_MAC=TRUE
+        -DBLE_TX_POWER=LL_TX_POWEER_4_DBM
     )
 
     target_link_options(${app_name} PRIVATE
@@ -174,6 +181,7 @@ function(config_ble_mcu app_name chip_name)
     target_sources(${app_name} PRIVATE
         ${APP_ALL_SRC_2}
         ${APP_ALL_SRC_3}
+        ${APP_ALL_SRC_4}
         ${APP_HAL_PATH}/SRC/RVMSIS/core_riscv.c
         ${APP_HAL_PATH}/BLE/LIB/ble_task_scheduler.S
         ${CMAKE_BINARY_DIR}/tmp_file/${chip_name}/${APP_STARTUP_FILE}
@@ -211,6 +219,7 @@ function(config_app app_name chip_name)
     string(FIND "${ARGN}" "enable_printf_uart1" APP_ENABLE_PRINT_UART1)
     string(FIND "${ARGN}" "enable_printf_uart2" APP_ENABLE_PRINT_UART2)
     string(FIND "${ARGN}" "enable_printf_uart3" APP_ENABLE_PRINT_UART3)
+    string(FIND "${ARGN}" "enable_printf_usb" APP_ENABLE_PRINT_USB)
     string(FIND "${ARGN}" "enable_tflite" APP_ENABLE_TFLITE)
     string(FIND "${ARGN}" "enable_wasm" APP_ENABLE_WASM)
     string(FIND "${ARGN}" "enable_lvgl8" APP_ENABLE_LVGL8)
@@ -270,9 +279,9 @@ function(config_app app_name chip_name)
         enable_rtos(${app_name} ${chip_name})
     endif()
 
-    if(NOT ${APP_ENABLE_CPP} EQUAL -1)
+    #if(NOT ${APP_ENABLE_CPP} EQUAL -1) # only support cpp
         enable_cpp(${app_name} ${chip_name})
-    endif()
+    #endif()
 
     if(NOT ${APP_ENABLE_PRINT_SDI} EQUAL -1)
         enable_printf(${app_name} ${chip_name} sdi)
@@ -288,6 +297,11 @@ function(config_app app_name chip_name)
     if(NOT ${APP_ENABLE_PRINT_UART3} EQUAL -1)
         enable_printf(${app_name} ${chip_name} uart3)
     endif()
+
+    if(NOT ${APP_ENABLE_PRINT_USB} EQUAL -1)
+        enable_printf(${app_name} ${chip_name} usb)
+    endif()
+
 
     if(NOT ${APP_ENABLE_TFLITE} EQUAL -1)
         enable_tflite(${app_name})
