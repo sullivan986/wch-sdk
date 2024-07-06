@@ -25,39 +25,39 @@ namespace ble_controller
 {
 
 // Parameter update delay
-const int SBP_PARAM_UPDATE_DELAY = 6400;
+static const int SBP_PARAM_UPDATE_DELAY = 6400;
 // What is the advertising interval when device is discoverable (units of 625us, 80=50ms)
-const int DEFAULT_ADVERTISING_INTERVAL = 80;
+static const int DEFAULT_ADVERTISING_INTERVAL = 80;
 // Limited discoverable mode advertises for 30.72s, and then stops
 // General discoverable mode advertises indefinitely
-const int DEFAULT_DISCOVERABLE_MODE = GAP_ADTYPE_FLAGS_GENERAL;
+static const int DEFAULT_DISCOVERABLE_MODE = GAP_ADTYPE_FLAGS_GENERAL;
 // Minimum connection interval (units of 1.25ms, 6=7.5ms)
-const int DEFAULT_DESIRED_MIN_CONN_INTERVAL = 6;
+static const int DEFAULT_DESIRED_MIN_CONN_INTERVAL = 6;
 // Maximum connection interval (units of 1.25ms, 100=125ms)
-const int DEFAULT_DESIRED_MAX_CONN_INTERVAL = 100;
+static const int DEFAULT_DESIRED_MAX_CONN_INTERVAL = 100;
 // Slave latency to use parameter update
-const int DEFAULT_DESIRED_SLAVE_LATENCY = 0;
+static const int DEFAULT_DESIRED_SLAVE_LATENCY = 0;
 // Supervision timeout value (units of 10ms, 100=1s)
-const int DEFAULT_DESIRED_CONN_TIMEOUT = 100;
+static const int DEFAULT_DESIRED_CONN_TIMEOUT = 100;
 
 static uint8_t main_task_id = INVALID_TASK_ID; // Task ID for internal task/event processing
 // sys task id
 static uint16_t SBP_START_DEVICE_EVT_id;
-static uint16_t SBP_PARAM_UPDATE_EVT_id;
 static uint16_t peripheralMTU = ATT_MTU_SIZE;
 //  characteristic value has changed callback
-typedef struct
+struct peripheralConnItem_t
 {
     uint16_t connHandle; // Connection handle of current connection
     uint16_t connInterval;
     uint16_t connSlaveLatency;
     uint16_t connTimeout;
-} peripheralConnItem_t;
-// Connection item list
+};
 static peripheralConnItem_t peripheralConnList;
 // TMOS Main_Circulation
 std::queue<std::function<void(void)>> user_tmp_task;
-// std::vector<std::function<void(void)>> user_tmp_task;
+std::function<void(void)> link_terminated_cb;
+std::function<void(void)> link_established_cb;
+
 __HIGH_CODE
 __attribute__((noinline)) void Main_Circulation()
 {
@@ -167,18 +167,11 @@ static gapRolesCBs_t Peripheral_PeripheralCBs = {
     peripheralStateNotificationCB, // Profile State Change Callbacks
     NULL,                          // When a valid RSSI is read from controller (not used by application)
     peripheralParamUpdateCB};
-
-static gapBondCBs_t Peripheral_BondMgrCBs = {
-    NULL, // Passcode callback (not used by application)
-    NULL, // Pairing / Bonding state Callback (not used by application)
-    NULL  // oob callback
-};
 // 以上是不用动的
 
 // Peripheral state
 struct characteristic_causality
 {
-    uint16_t uuid;
     uint8_t uuid_LO_HI[ATT_BT_UUID_SIZE];
 
     bool flag_bcast = false;
@@ -199,32 +192,24 @@ struct characteristic_causality
 
     std::string description;
 
-    std::function<void(std::vector<uint8_t> characteristic_buff, std::span<const uint8_t> recv_data)>
-        write_callback_fun;
+    std::function<void(std::span<const uint8_t> recv_data)> write_callback_fun;
 };
 
 struct service_causality
 {
     // service uuid
-    uint16_t uuid;
     uint8_t uuid_LO_HI[ATT_BT_UUID_SIZE];
     gattAttrType_t service_profile;
     // profile table
     std::vector<gattAttribute_t> gatt_profile_table;
 
     // characteristics causality
-    std::map<uint8_t, characteristic_causality> characteristics;
+    std::map<uint16_t, characteristic_causality> characteristics;
 
     // service
     gattServiceCBs_t service_profile_CBs;
 };
-static std::map<uint8_t, service_causality> service_map;
-
-// Broadcast state
-struct broadcast_causality
-{
-};
-static std::map<uint8_t, broadcast_causality> broadcast_map;
+static std::map<uint16_t, service_causality> service_map;
 
 // Tmos
 static std::map<uint16_t, std::function<void(void)>> tmos_process_event_map;
@@ -247,7 +232,10 @@ static void Peripheral_LinkEstablished(gapRoleEvent_t *pEvent)
         peripheralConnList.connTimeout = event->connTimeout;
         peripheralMTU = ATT_MTU_SIZE;
         // Set timer for param update event
-        tmos_start_task(main_task_id, SBP_PARAM_UPDATE_EVT_id, SBP_PARAM_UPDATE_DELAY);
+        GAPRole_PeripheralConnParamUpdateReq(peripheralConnList.connHandle, DEFAULT_DESIRED_MIN_CONN_INTERVAL,
+                                             DEFAULT_DESIRED_MAX_CONN_INTERVAL, DEFAULT_DESIRED_SLAVE_LATENCY,
+                                             DEFAULT_DESIRED_CONN_TIMEOUT, main_task_id);
+        link_established_cb();
         // Start read rssi
         log_info("[LINKE] Conn %x - Int %x ", event->connectionHandle, event->connInterval);
     }
@@ -265,7 +253,7 @@ static void Peripheral_LinkTerminated(gapRoleEvent_t *pEvent)
         peripheralConnList.connSlaveLatency = 0;
         peripheralConnList.connTimeout = 0;
         // tmos_stop_task(main_task_id, SBP_READ_RSSI_EVT);
-
+        link_terminated_cb();
         // Restart advertising
         {
             uint8_t advertising_enable = TRUE;
@@ -288,9 +276,9 @@ static void simpleProfile_HandleConnStatusCB(uint16_t connHandle, uint8_t change
         if ((changeType == LINKDB_STATUS_UPDATE_REMOVED) ||
             ((changeType == LINKDB_STATUS_UPDATE_STATEFLAGS) && (!linkDB_Up(connHandle))))
         {
-            for (auto &&[service_id, service] : service_map)
+            for (auto &&[service_uuid, service] : service_map)
             {
-                for (auto &&[characteristic_id, characteristic] : service.characteristics)
+                for (auto &&[characteristic_uuid, characteristic] : service.characteristics)
                 {
                     if (characteristic.flag_indicate || characteristic.flag_notify)
                     {
@@ -303,9 +291,9 @@ static void simpleProfile_HandleConnStatusCB(uint16_t connHandle, uint8_t change
 }
 
 // instead simpleProfile_ReadAttrCB
-template <uint8_t ID>
-static bStatus_t service_read_callback(uint16_t connHandle, gattAttribute_t *pAttr, uint8_t *pValue, uint16_t *pLen,
-                                       uint16_t offset, uint16_t maxLen, uint8_t method)
+template <uint16_t SERVICE_UUID>
+bStatus_t service_read_callback(uint16_t connHandle, gattAttribute_t *pAttr, uint8_t *pValue, uint16_t *pLen,
+                                uint16_t offset, uint16_t maxLen, uint8_t method)
 {
     bStatus_t status = SUCCESS;
 
@@ -321,9 +309,9 @@ static bStatus_t service_read_callback(uint16_t connHandle, gattAttribute_t *pAt
         uint16_t uuid = BUILD_UINT16(pAttr->type.uuid[0], pAttr->type.uuid[1]);
 
         bool find_flag = false;
-        for (auto &&[characteristic_id, characteristic] : service_map[ID].characteristics)
+        for (auto &&[characteristic_uuid, characteristic] : service_map[SERVICE_UUID].characteristics)
         {
-            if (uuid == characteristic.uuid)
+            if (uuid == characteristic_uuid)
             {
                 if (maxLen > characteristic.buff.size())
                 {
@@ -333,7 +321,7 @@ static bStatus_t service_read_callback(uint16_t connHandle, gattAttribute_t *pAt
                 {
                     *pLen = maxLen;
                 }
-                log_info("service[%d] char[%d] being read", ID, characteristic_id);
+                log_info("service[%x] char[%x] being read", SERVICE_UUID, characteristic_uuid);
                 tmos_memcpy(pValue, pAttr->pValue, *pLen);
                 find_flag = true;
             }
@@ -356,7 +344,7 @@ static bStatus_t service_read_callback(uint16_t connHandle, gattAttribute_t *pAt
 
 // instead simpleProfile_WriteAttrCB
 // lib CB 写 Callback
-template <uint8_t ID>
+template <uint16_t SERVICE_UUID>
 static bStatus_t service_write_callback(uint16_t connHandle, gattAttribute_t *pAttr, uint8_t *pValue, uint16_t len,
                                         uint16_t offset, uint8_t method)
 {
@@ -374,9 +362,9 @@ static bStatus_t service_write_callback(uint16_t connHandle, gattAttribute_t *pA
         // 16-bit UUID
         uint16_t uuid = BUILD_UINT16(pAttr->type.uuid[0], pAttr->type.uuid[1]);
 
-        for (auto &&[characteristic_id, characteristic] : service_map[ID].characteristics)
+        for (auto &&[characteristic_uuid, characteristic] : service_map[SERVICE_UUID].characteristics)
         {
-            if (uuid == characteristic.uuid)
+            if (uuid == characteristic_uuid)
             {
                 // 自己处理收到的数据, 不一定要写给CHAR1, 写入最大不能超过 mtu - 3
                 //  Make sure it's not a blob oper
@@ -388,10 +376,10 @@ static bStatus_t service_write_callback(uint16_t connHandle, gattAttribute_t *pA
                 // Write the value
                 if (status == SUCCESS)
                 {
-                    log_info("service[%d] char[%d] being write", ID, characteristic_id);
+                    log_info("service[%d] char[%d] being write", SERVICE_UUID, characteristic_uuid);
                     //  tmos_memcpy(pAttr->pValue, pValue, characteristic.buff.size()); // 将recvdata 写入
                     std::span<uint8_t> recv_data((uint8_t *)pValue, len);
-                    characteristic.write_callback_fun(characteristic.buff, recv_data);
+                    characteristic.write_callback_fun(recv_data);
                 }
             }
         }
@@ -480,20 +468,14 @@ class ble_controller
     class characteristic_operator
     {
       public:
-        characteristic_operator(ble_controller *parent, uint8_t p_service_id, uint8_t p_characteristic_id)
-            : _parent(parent), _parent_service_id(p_service_id)
+        characteristic_operator(ble_controller *parent, uint16_t p_service_uuid, uint16_t p_characteristic_uuid)
+            : _parent(parent), _parent_service_uuid(p_service_uuid)
         {
-            service_map[p_service_id].characteristics[p_characteristic_id] = {};
-            target_characteristic = &service_map[p_service_id].characteristics[p_characteristic_id];
-        }
+            service_map[p_service_uuid].characteristics[p_characteristic_uuid] = {};
+            target_characteristic = &service_map[p_service_uuid].characteristics[p_characteristic_uuid];
 
-        characteristic_operator &set_uuid(uint16_t uuid)
-        {
-            target_characteristic->uuid = uuid;
-            target_characteristic->uuid_LO_HI[0] = (uint8_t)(LO_UINT16(uuid));
-            target_characteristic->uuid_LO_HI[1] = (uint8_t)(HI_UINT16(uuid));
-
-            return *this;
+            target_characteristic->uuid_LO_HI[0] = (uint8_t)(LO_UINT16(p_characteristic_uuid));
+            target_characteristic->uuid_LO_HI[1] = (uint8_t)(HI_UINT16(p_characteristic_uuid));
         }
 
         characteristic_operator &set_value_size(size_t size)
@@ -508,11 +490,15 @@ class ble_controller
             return *this;
         }
 
-        characteristic_operator &set_write_cb_func(
-            std::function<void(std::vector<uint8_t> characteristic_buff, std::span<const uint8_t> recv_data)> func)
+        characteristic_operator &set_write_cb_func(std::function<void(std::span<const uint8_t> recv_data)> func)
         {
             target_characteristic->write_callback_fun = func;
             return *this;
+        }
+
+        std::vector<uint8_t> &value()
+        {
+            return target_characteristic->buff;
         }
 
         characteristic_operator &enable_read()
@@ -562,7 +548,7 @@ class ble_controller
                     tmos_memcpy(noti.pValue, data.data(), noti.len);
                 }
                 // Set the handle
-                noti.handle = service_map[_parent_service_id]
+                noti.handle = service_map[_parent_service_uuid]
                                   .gatt_profile_table[target_characteristic->cfg_table_value_index]
                                   .handle;
                 // Send the notification
@@ -578,7 +564,7 @@ class ble_controller
             }
         }
 
-        uint8_t _parent_service_id;
+        uint16_t _parent_service_uuid;
         characteristic_causality *target_characteristic;
         ble_controller *_parent;
     };
@@ -587,24 +573,14 @@ class ble_controller
     class service_operator
     {
       public:
-        service_operator(ble_controller *parent, uint8_t service_id) : _parent(parent), _service_id(service_id)
+        service_operator(ble_controller *parent, uint16_t service_uuid) : _parent(parent), _service_uuid(service_uuid)
         {
-            service_map[_service_id] = {};
-            target_service = &service_map[_service_id];
-        }
+            service_map[_service_uuid] = {};
+            target_service = &service_map[_service_uuid];
 
-        characteristic_operator add_characteristic_by_id(uint8_t id)
-        {
-            characteristic_operator f(_parent, _service_id, id);
-            return std::move(f);
-        }
-
-        service_operator &set_uuid(uint16_t uuid)
-        {
-            target_service->uuid = uuid;
-            target_service->uuid_LO_HI[0] = (uint8_t)(LO_UINT16(uuid));
-            target_service->uuid_LO_HI[1] = (uint8_t)(HI_UINT16(uuid));
-            target_service->service_profile.uuid = service_map[_service_id].uuid_LO_HI;
+            target_service->uuid_LO_HI[0] = (uint8_t)(LO_UINT16(service_uuid));
+            target_service->uuid_LO_HI[1] = (uint8_t)(HI_UINT16(service_uuid));
+            target_service->service_profile.uuid = service_map[_service_uuid].uuid_LO_HI;
             target_service->service_profile.len = ATT_BT_UUID_SIZE;
             gattAttribute_t primary_profile_table{
                 {ATT_BT_UUID_SIZE, primaryServiceUUID},     /* type */
@@ -613,15 +589,16 @@ class ble_controller
                 (uint8_t *)&target_service->service_profile /* pValue */
             };
             target_service->gatt_profile_table.emplace_back(primary_profile_table);
-            return *this;
         }
 
-        void notify(std::span<uint8_t> data)
+        characteristic_operator add_characteristic_by_uuid(uint16_t uuid)
         {
+            characteristic_operator f(_parent, _service_uuid, uuid);
+            return std::move(f);
         }
 
         service_causality *target_service;
-        uint8_t _service_id;
+        uint16_t _service_uuid;
         ble_controller *_parent;
     };
 
@@ -678,13 +655,7 @@ class ble_controller
         ble_state = BleState::peripheral;
         SBP_START_DEVICE_EVT_id = add_tmos_event_func([]() {
             // Start the Device
-            GAPRole_PeripheralStartDevice(main_task_id, &Peripheral_BondMgrCBs, &Peripheral_PeripheralCBs);
-        });
-        SBP_PARAM_UPDATE_EVT_id = add_tmos_event_func([]() {
-            // Send connect param update request
-            GAPRole_PeripheralConnParamUpdateReq(peripheralConnList.connHandle, DEFAULT_DESIRED_MIN_CONN_INTERVAL,
-                                                 DEFAULT_DESIRED_MAX_CONN_INTERVAL, DEFAULT_DESIRED_SLAVE_LATENCY,
-                                                 DEFAULT_DESIRED_CONN_TIMEOUT, main_task_id);
+            GAPRole_PeripheralStartDevice(main_task_id, nullptr, &Peripheral_PeripheralCBs);
         });
 
         advert_data_group.emplace_back(
@@ -718,6 +689,18 @@ class ble_controller
 
     constexpr ble_controller &set_mac(std::string_view name)
     {
+        return *this;
+    }
+
+    ble_controller &set_link_terminated_cb(std::function<void(void)> func)
+    {
+        link_terminated_cb = func;
+        return *this;
+    }
+
+    ble_controller &set_link_established_cb(std::function<void(void)> func)
+    {
+        link_established_cb = func;
         return *this;
     }
 
@@ -771,10 +754,10 @@ class ble_controller
         return *this;
     }
 
-    template <uint8_t ID> service_operator add_service_by_id()
+    template <uint16_t UUID> service_operator add_service_by_uuid()
     {
-        service_operator _service_operator(this, ID);
-        service_map[ID].service_profile_CBs = {service_read_callback<ID>, service_write_callback<ID>, nullptr};
+        service_operator _service_operator(this, UUID);
+        service_map[UUID].service_profile_CBs = {service_read_callback<UUID>, service_write_callback<UUID>, nullptr};
         return std::move(_service_operator);
     }
 
@@ -805,9 +788,9 @@ class ble_controller
     void start()
     {
         // 为每个 service 生成一张 profile table
-        for (auto &&[service_id, service] : service_map)
+        for (auto &&[service_uuid, service] : service_map)
         {
-            for (auto &&[characteristic_id, characteristic] : service.characteristics)
+            for (auto &&[characteristic_uuid, characteristic] : service.characteristics)
             {
                 if (characteristic.flag_bcast)
                 {
@@ -1028,9 +1011,9 @@ class ble_controller
     // instead SimpleProfile_AddService
     void service_init()
     {
-        for (auto &&[service_id, service] : service_map)
+        for (auto &&[service_uuid, service] : service_map)
         {
-            for (auto &&[characteristic_id, characteristic] : service.characteristics)
+            for (auto &&[characteristic_uuid, characteristic] : service.characteristics)
             {
                 if (characteristic.flag_indicate || characteristic.flag_notify)
                 {

@@ -64,22 +64,20 @@ int main()
                   .set_mtu_size(20)
                   .set_max_connection(1);
 
-    auto service_1 = bc.add_service_by_id<0>().set_uuid(0xff00);
+    auto service_1 = bc.add_service_by_uuid<0xff00>();
 
     // add characteristic service for service 1
-    auto ble_tx_char = service_1.add_characteristic_by_id(0)
-                           .set_uuid(0xff01)
+    auto ble_tx_char = service_1.add_characteristic_by_uuid(0xff01)
                            .set_description("notify char")
                            .set_value_size(1)
                            .enable_notify();
 
     auto ble_rx_char =
-        service_1.add_characteristic_by_id(1)
-            .set_uuid(0xff02)
+        service_1.add_characteristic_by_uuid(0xff02)
             .set_description("recv data char")
             .set_value_size(1)
             .enable_write_no_rsp()
-            .set_write_cb_func([&](std::vector<uint8_t> characteristic_buff, std::span<const uint8_t> recv_data) {
+            .set_write_cb_func([&](std::span<const uint8_t> recv_data) {
                 for (auto &&byte : recv_data)
                 {
                     bleRX_uartTX_fifo.push(byte);
@@ -92,7 +90,7 @@ int main()
         if (!bleTX_uartRX_fifo.empty())
         {
             std::vector<uint8_t> buff;
-            while (buff.size() < peripheralMTU && !bleTX_uartRX_fifo.empty())
+            while (buff.size() < ATT_MTU_SIZE && !bleTX_uartRX_fifo.empty())
             {
                 buff.emplace_back(bleTX_uartRX_fifo.front());
                 bleTX_uartRX_fifo.pop();
@@ -113,6 +111,18 @@ int main()
     });
 
     timer1.expires_at(10000);
+
+        // 创建连接后的 10000ms 运行 
+    bc.set_link_established_cb([&]() {
+    timer1.expires_at(10000);
+    });
+
+    
+    
+    // 连接断开后取消所有 timer
+    bc.set_link_terminated_cb([&]() {
+        timer1.cancel();
+    });
 
     bc.start();
 }
