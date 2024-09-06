@@ -9,7 +9,7 @@ function(config_common_mcu app_name chip_name)
         set(APP_SERIES_NAME ch32v30x)
         set(APP_STARTUP_FILE startup_${APP_SERIES_NAME}_D8C.S)
 
-        set(CHIP_COMPILE_OPS_ARCH rv32imafcxw)
+        set(CHIP_COMPILE_OPS_ARCH rv32imafc_zicsr)
         set(CHIP_COMPILE_OPS_ABI ilp32f)
         set(CHIP_COMPILE_OPS_SDL 8)
         set(CHIP_COMPILE_OPS_SR -msave-restore)
@@ -18,7 +18,7 @@ function(config_common_mcu app_name chip_name)
         set(APP_SERIES_NAME ch32v00x)
         set(APP_STARTUP_FILE startup_${APP_SERIES_NAME}.S)
 
-        set(CHIP_COMPILE_OPS_ARCH rv32ecxw)
+        set(CHIP_COMPILE_OPS_ARCH rv32ec)
         set(CHIP_COMPILE_OPS_ABI ilp32e)
         set(CHIP_COMPILE_OPS_SDL 0)
         set(CHIP_COMPILE_OPS_SR -msave-restore)
@@ -74,7 +74,6 @@ function(config_common_mcu app_name chip_name)
     
     target_link_libraries(${app_name} PUBLIC
         utensil
-        printfloat
     )
 
     configure_file(
@@ -251,7 +250,7 @@ function(config_app app_name chip_name)
         -DUTENSIL_SET_CHIP_${chip_name}
     )
 
-    set(common_mcu_list "ch32v307" "ch32v003")
+    set(common_mcu_list "ch32v003" "ch32v203" "ch32v307")
     set(ble_mcu_list "ch592")
 
     list(FIND common_mcu_list ${chip_name} index_common)

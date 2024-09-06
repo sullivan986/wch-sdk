@@ -1,4 +1,5 @@
 riscv-gcc
+riscv-llvm
 build
 .cache
 .vscode

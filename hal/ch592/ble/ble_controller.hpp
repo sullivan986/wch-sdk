@@ -24,25 +24,17 @@
 namespace ble_controller
 {
 
-// Parameter update delay
-static const int SBP_PARAM_UPDATE_DELAY = 6400;
+// PERI
 // What is the advertising interval when device is discoverable (units of 625us, 80=50ms)
 static const int DEFAULT_ADVERTISING_INTERVAL = 80;
-// Limited discoverable mode advertises for 30.72s, and then stops
-// General discoverable mode advertises indefinitely
-static const int DEFAULT_DISCOVERABLE_MODE = GAP_ADTYPE_FLAGS_GENERAL;
 // Minimum connection interval (units of 1.25ms, 6=7.5ms)
 static const int DEFAULT_DESIRED_MIN_CONN_INTERVAL = 6;
 // Maximum connection interval (units of 1.25ms, 100=125ms)
 static const int DEFAULT_DESIRED_MAX_CONN_INTERVAL = 100;
-// Slave latency to use parameter update
-static const int DEFAULT_DESIRED_SLAVE_LATENCY = 0;
-// Supervision timeout value (units of 10ms, 100=1s)
-static const int DEFAULT_DESIRED_CONN_TIMEOUT = 100;
 
 static uint8_t main_task_id = INVALID_TASK_ID; // Task ID for internal task/event processing
 // sys task id
-static uint16_t SBP_START_DEVICE_EVT_id;
+static uint16_t START_EVENT_ID;
 static uint16_t peripheralMTU = ATT_MTU_SIZE;
 //  characteristic value has changed callback
 struct peripheralConnItem_t
@@ -54,12 +46,12 @@ struct peripheralConnItem_t
 };
 static peripheralConnItem_t peripheralConnList;
 // TMOS Main_Circulation
-std::queue<std::function<void(void)>> user_tmp_task;
-std::function<void(void)> link_terminated_cb;
-std::function<void(void)> link_established_cb;
+static std::queue<std::function<void(void)>> user_tmp_task;
+static std::function<void(void)> link_terminated_cb;
+static std::function<void(void)> link_established_cb;
 
 __HIGH_CODE
-__attribute__((noinline)) void Main_Circulation()
+__attribute__((noinline)) static void Main_Circulation()
 {
     while (1)
     {
@@ -231,10 +223,6 @@ static void Peripheral_LinkEstablished(gapRoleEvent_t *pEvent)
         peripheralConnList.connSlaveLatency = event->connLatency;
         peripheralConnList.connTimeout = event->connTimeout;
         peripheralMTU = ATT_MTU_SIZE;
-        // Set timer for param update event
-        GAPRole_PeripheralConnParamUpdateReq(peripheralConnList.connHandle, DEFAULT_DESIRED_MIN_CONN_INTERVAL,
-                                             DEFAULT_DESIRED_MAX_CONN_INTERVAL, DEFAULT_DESIRED_SLAVE_LATENCY,
-                                             DEFAULT_DESIRED_CONN_TIMEOUT, main_task_id);
         link_established_cb();
         // Start read rssi
         log_info("[LINKE] Conn %x - Int %x ", event->connectionHandle, event->connInterval);
@@ -418,6 +406,190 @@ static bStatus_t service_write_callback(uint16_t connHandle, gattAttribute_t *pA
         status = ATT_ERR_INVALID_HANDLE;
     }
     return (status);
+}
+
+// CENTRAL
+static const int DEFAULT_DISCOVERY_MODE = DEVDISC_MODE_ALL;
+static const int DEFAULT_DISCOVERY_ACTIVE_SCAN = TRUE;
+static const int DEFAULT_DISCOVERY_WHITE_LIST = FALSE;
+
+// SCAN
+static const int DEFAULT_MAX_SCAN_RES = 10;
+static uint8_t centralScanRes;
+static gapDevRec_t centralDevList[DEFAULT_MAX_SCAN_RES];
+
+// Peer device address
+static uint8_t PeerAddrDef[B_ADDR_LEN] = {0x02, 0x02, 0x03, 0xE4, 0xC2, 0x84};
+
+static void centralAddDeviceInfo(uint8_t *pAddr, uint8_t addrType)
+{
+    uint8_t i;
+
+    // If result count not at max
+    if (centralScanRes < DEFAULT_MAX_SCAN_RES)
+    {
+        // Check if device is already in scan results
+        for (i = 0; i < centralScanRes; i++)
+        {
+            if (tmos_memcmp(pAddr, centralDevList[i].addr, B_ADDR_LEN))
+            {
+                return;
+            }
+        }
+        // Add addr to scan result list
+        tmos_memcpy(centralDevList[centralScanRes].addr, pAddr, B_ADDR_LEN);
+        centralDevList[centralScanRes].addrType = addrType;
+        // Increment scan result count
+        centralScanRes++;
+        // Display device addr
+        log_info("[scan] Device %d - Addr %x %x %x %x %x %x \n", centralScanRes,
+                 centralDevList[centralScanRes - 1].addr[0], centralDevList[centralScanRes - 1].addr[1],
+                 centralDevList[centralScanRes - 1].addr[2], centralDevList[centralScanRes - 1].addr[3],
+                 centralDevList[centralScanRes - 1].addr[4], centralDevList[centralScanRes - 1].addr[5]);
+    }
+}
+
+static void centralEventCB(gapRoleEvent_t *pEvent)
+{
+    switch (pEvent->gap.opcode)
+    {
+    case GAP_DEVICE_INIT_DONE_EVENT: {
+        PRINT("[central] Discovering...\n");
+        GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE, DEFAULT_DISCOVERY_ACTIVE_SCAN,
+                                      DEFAULT_DISCOVERY_WHITE_LIST);
+    }
+    break;
+
+    case GAP_DEVICE_INFO_EVENT: {
+        // Add device to list
+        centralAddDeviceInfo(pEvent->deviceInfo.addr, pEvent->deviceInfo.addrType);
+    }
+    break;
+
+    case GAP_DEVICE_DISCOVERY_EVENT: {
+        uint8_t i;
+
+        // See if peer device has been discovered
+        for (i = 0; i < centralScanRes; i++)
+        {
+            if (tmos_memcmp(PeerAddrDef, centralDevList[i].addr, B_ADDR_LEN))
+                break;
+        }
+
+        // Peer device not found
+        if (i == centralScanRes)
+        {
+            PRINT("Device not found...\n");
+            centralScanRes = 0;
+            GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE, DEFAULT_DISCOVERY_ACTIVE_SCAN,
+                                          DEFAULT_DISCOVERY_WHITE_LIST);
+            PRINT("Discovering...\n");
+        }
+
+        // Peer device found
+        else
+        {
+            PRINT("Device found...\n");
+            GAPRole_CentralEstablishLink(FALSE, FALSE, centralDevList[i].addrType, centralDevList[i].addr);
+
+            // Start establish link timeout event
+            tmos_start_task(main_task_id, ESTABLISH_LINK_TIMEOUT_EVT, ESTABLISH_LINK_TIMEOUT);
+            PRINT("Connecting...\n");
+        }
+    }
+    break;
+
+    case GAP_LINK_ESTABLISHED_EVENT: {
+        tmos_stop_task(centralTaskId, ESTABLISH_LINK_TIMEOUT_EVT);
+        if (pEvent->gap.hdr.status == SUCCESS)
+        {
+            centralState = BLE_STATE_CONNECTED;
+            centralConnHandle = pEvent->linkCmpl.connectionHandle;
+            centralProcedureInProgress = TRUE;
+
+            // Update MTU
+            attExchangeMTUReq_t req = {
+                .clientRxMTU = BLE_BUFF_MAX_LEN - 4,
+            };
+
+            GATT_ExchangeMTU(centralConnHandle, &req, centralTaskId);
+
+            // Initiate service discovery
+            tmos_start_task(centralTaskId, START_SVC_DISCOVERY_EVT, DEFAULT_SVC_DISCOVERY_DELAY);
+
+            // See if initiate connect parameter update
+            if (centralParamUpdate)
+            {
+                tmos_start_task(centralTaskId, START_PARAM_UPDATE_EVT, DEFAULT_PARAM_UPDATE_DELAY);
+            }
+            // See if initiate phy update
+            if (centralPhyUpdate)
+            {
+                tmos_start_task(centralTaskId, START_PHY_UPDATE_EVT, DEFAULT_PHY_UPDATE_DELAY);
+            }
+            // See if start RSSI polling
+            if (centralRssi)
+            {
+                tmos_start_task(centralTaskId, START_READ_RSSI_EVT, DEFAULT_RSSI_PERIOD);
+            }
+
+            PRINT("Connected...\n");
+        }
+        else
+        {
+            PRINT("Connect Failed...Reason:%X\n", pEvent->gap.hdr.status);
+            PRINT("Discovering...\n");
+            centralScanRes = 0;
+            GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE, DEFAULT_DISCOVERY_ACTIVE_SCAN,
+                                          DEFAULT_DISCOVERY_WHITE_LIST);
+        }
+    }
+    break;
+
+    case GAP_LINK_TERMINATED_EVENT: {
+        centralState = BLE_STATE_IDLE;
+        centralConnHandle = GAP_CONNHANDLE_INIT;
+        centralDiscState = BLE_DISC_STATE_IDLE;
+        centralCharHdl = 0;
+        centralScanRes = 0;
+        centralProcedureInProgress = FALSE;
+        tmos_stop_task(centralTaskId, START_READ_RSSI_EVT);
+        PRINT("Disconnected...Reason:%x\n", pEvent->linkTerminate.reason);
+        PRINT("Discovering...\n");
+        GAPRole_CentralStartDiscovery(DEFAULT_DISCOVERY_MODE, DEFAULT_DISCOVERY_ACTIVE_SCAN,
+                                      DEFAULT_DISCOVERY_WHITE_LIST);
+    }
+    break;
+
+    case GAP_LINK_PARAM_UPDATE_EVENT: {
+        PRINT("Param Update...\n");
+    }
+    break;
+
+    case GAP_PHY_UPDATE_EVENT: {
+        PRINT("PHY Update...\n");
+    }
+    break;
+
+    case GAP_EXT_ADV_DEVICE_INFO_EVENT: {
+        // Display device addr
+        PRINT("Recv ext adv \n");
+        // Add device to list
+        centralAddDeviceInfo(pEvent->deviceExtAdvInfo.addr, pEvent->deviceExtAdvInfo.addrType);
+    }
+    break;
+
+    case GAP_DIRECT_DEVICE_INFO_EVENT: {
+        // Display device addr
+        PRINT("Recv direct adv \n");
+        // Add device to list
+        centralAddDeviceInfo(pEvent->deviceDirectInfo.addr, pEvent->deviceDirectInfo.addrType);
+    }
+    break;
+
+    default:
+        break;
+    }
 }
 
 // TMOS 处理函数
@@ -653,13 +825,15 @@ class ble_controller
     ble_controller &set_mode_peripheral()
     {
         ble_state = BleState::peripheral;
-        SBP_START_DEVICE_EVT_id = add_tmos_event_func([]() {
+        START_EVENT_ID = add_tmos_event_func([]() {
             // Start the Device
             GAPRole_PeripheralStartDevice(main_task_id, nullptr, &Peripheral_PeripheralCBs);
         });
 
         advert_data_group.emplace_back(
-            get_uint8_vector({GAP_ADTYPE_FLAGS, DEFAULT_DISCOVERABLE_MODE | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED}));
+            // Limited discoverable mode advertises for 30.72s, and then stops
+            // General discoverable mode advertises indefinitely
+            get_uint8_vector({GAP_ADTYPE_FLAGS, GAP_ADTYPE_FLAGS_GENERAL | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED}));
 
         return *this;
     }
@@ -667,7 +841,7 @@ class ble_controller
     ble_controller &set_mode_broadcaster()
     {
         ble_state = BleState::broadcaster;
-        SBP_START_DEVICE_EVT_id = add_tmos_event_func([&]() {
+        START_EVENT_ID = add_tmos_event_func([&]() {
             // Start the Device
             GAPRole_BroadcasterStartDevice(&Broadcaster_BroadcasterCBs);
         });
@@ -677,6 +851,17 @@ class ble_controller
         advert_data_group.emplace_back(get_uint8_vector({GAP_ADTYPE_MANUFACTURER_SPECIFIC, 'b', 'l', 'e'}));
 
         advert_data_group.emplace_back(get_uint8_vector({GAP_ADTYPE_LOCAL_NAME_SHORT, 'a', 'b', 'c'}));
+
+        return *this;
+    }
+
+    ble_controller &set_mode_central()
+    {
+        ble_state = BleState::central;
+        START_EVENT_ID = add_tmos_event_func([&]() {
+            // Start the Device
+            GAPRole_CentralStartDevice(main_task_id, &centralBondCB, &centralRoleCB);
+        });
 
         return *this;
     }
@@ -783,6 +968,19 @@ class ble_controller
     {
         uint8_t initial_advertising_enable = FALSE;
         GAPRole_SetParameter(GAPROLE_ADVERT_ENABLED, sizeof(uint8_t), &initial_advertising_enable); // 关闭广播包
+    }
+
+    // connTimeout (units of 10ms, 100=1s)
+    void update_conn_param(uint16_t connHandle, uint16_t connIntervalMin, uint16_t connIntervalMax, uint16_t latency,
+                           uint16_t connTimeout)
+    {
+        GAPRole_PeripheralConnParamUpdateReq(peripheralConnList.connHandle, connIntervalMin, connIntervalMax, latency,
+                                             connTimeout, main_task_id);
+    }
+
+    constexpr uint16_t get_mtu_size()
+    {
+        return peripheralMTU;
     }
 
     void start()
@@ -910,6 +1108,8 @@ class ble_controller
             Broadcaster_Init();
             break;
         case BleState::central:
+            GAPRole_CentralInit();
+            Central_Init();
             break;
         }
         Main_Circulation();
@@ -929,6 +1129,16 @@ class ble_controller
         NULL  // Receive scan request callback
     };
 
+    // GAP Role Callbacks
+    gapCentralRoleCB_t centralRoleCB = {
+        NULL,                 // RSSI callback
+        centralEventCB,       // Event callback
+        centralHciMTUChangeCB // MTU change callback
+    };
+
+    // Bond Manager Callbacks
+    gapBondCBs_t centralBondCB = {centralPasscodeCB, centralPairStateCB};
+
     // func
     void Peripheral_Init()
     {
@@ -947,10 +1157,9 @@ class ble_controller
             GAPRole_SetParameter(GAPROLE_MAX_CONN_INTERVAL, sizeof(uint16_t), &desired_max_interval);
         }
         {
-            uint16_t advInt = DEFAULT_ADVERTISING_INTERVAL;
             // Set advertising interval
-            GAP_SetParamValue(TGAP_DISC_ADV_INT_MIN, advInt);
-            GAP_SetParamValue(TGAP_DISC_ADV_INT_MAX, advInt);
+            GAP_SetParamValue(TGAP_DISC_ADV_INT_MIN, DEFAULT_ADVERTISING_INTERVAL);
+            GAP_SetParamValue(TGAP_DISC_ADV_INT_MAX, DEFAULT_ADVERTISING_INTERVAL);
             // Enable scan req notify
             GAP_SetParamValue(TGAP_ADV_SCAN_REQ_NOTIFY, ENABLE);
         }
@@ -981,7 +1190,7 @@ class ble_controller
         peripheralConnList.connTimeout = 0;
         // Register receive scan request callback
         GAPRole_BroadcasterSetCB(&Broadcaster_BroadcasterCBs);
-        tmos_set_event(main_task_id, SBP_START_DEVICE_EVT_id);
+        tmos_set_event(main_task_id, START_EVENT_ID);
     }
 
     void Broadcaster_Init()
@@ -1000,12 +1209,42 @@ class ble_controller
         }
         // Set advertising interval
         {
-            uint16_t advInt = DEFAULT_ADVERTISING_INTERVAL;
-            GAP_SetParamValue(TGAP_DISC_ADV_INT_MIN, advInt);
-            GAP_SetParamValue(TGAP_DISC_ADV_INT_MAX, advInt);
+            GAP_SetParamValue(TGAP_DISC_ADV_INT_MIN, DEFAULT_ADVERTISING_INTERVAL);
+            GAP_SetParamValue(TGAP_DISC_ADV_INT_MAX, DEFAULT_ADVERTISING_INTERVAL);
         }
         // Setup a delayed profile startup
-        tmos_set_event(main_task_id, SBP_START_DEVICE_EVT_id);
+        tmos_set_event(main_task_id, START_EVENT_ID);
+    }
+
+    void Central_Init()
+    {
+        main_task_id = TMOS_ProcessEventRegister(TMOS_process_event);
+        // Setup GAP
+        GAP_SetParamValue(TGAP_DISC_SCAN, 2400);              // Scan duration in 0.625ms
+        GAP_SetParamValue(TGAP_CONN_EST_INT_MIN, 20);         // Connection min interval in 1.25ms
+        GAP_SetParamValue(TGAP_CONN_EST_INT_MAX, 100);        // Connection max interval in 1.25ms
+        GAP_SetParamValue(TGAP_CONN_EST_SUPERV_TIMEOUT, 100); // Connection supervision timeout in 10ms
+
+        // Setup the GAP Bond Manager
+        {
+            uint32_t passkey = 0;
+            uint8_t pairMode = GAPBOND_PAIRING_MODE_WAIT_FOR_REQ;
+            uint8_t mitm = TRUE;
+            uint8_t ioCap = GAPBOND_IO_CAP_NO_INPUT_NO_OUTPUT;
+            uint8_t bonding = TRUE;
+
+            GAPBondMgr_SetParameter(GAPBOND_CENT_DEFAULT_PASSCODE, sizeof(uint32_t), &passkey);
+            GAPBondMgr_SetParameter(GAPBOND_CENT_PAIRING_MODE, sizeof(uint8_t), &pairMode);
+            GAPBondMgr_SetParameter(GAPBOND_CENT_MITM_PROTECTION, sizeof(uint8_t), &mitm);
+            GAPBondMgr_SetParameter(GAPBOND_CENT_IO_CAPABILITIES, sizeof(uint8_t), &ioCap);
+            GAPBondMgr_SetParameter(GAPBOND_CENT_BONDING_ENABLED, sizeof(uint8_t), &bonding);
+        }
+        // Initialize GATT Client
+        GATT_InitClient();
+        // Register to receive incoming ATT Indications/Notifications
+        GATT_RegisterForInd(main_task_id);
+        // Setup a delayed profile startup
+        tmos_set_event(main_task_id, START_EVENT_ID);
     }
 
     // instead SimpleProfile_AddService

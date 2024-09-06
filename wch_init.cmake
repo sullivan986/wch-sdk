@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_C_STANDARD 11)
 
 if(EXISTS ${CMAKE_CURRENT_LIST_DIR}/riscv-gcc)
-    set(TOOLPATH ${CMAKE_CURRENT_LIST_DIR}/riscv-gcc/MRS_Toolchain_Linux_x64_V1.91/RISC-V_Embedded_GCC12/bin)
+    set(TOOLPATH ${CMAKE_CURRENT_LIST_DIR}/riscv-gcc/xpack-riscv-none-elf-gcc/bin/)
 endif()
 
 # toolchains setting
