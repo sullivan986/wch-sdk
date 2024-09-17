@@ -83,7 +83,7 @@ function(set_ram_and_flash app_name chip_name ram flash)
         add_custom_command(
             TARGET ${app_name} PRE_BUILD
             COMMAND sed -i '26c 	FLASH (rx) : ORIGIN = 0x00000000, LENGTH = ${flash}K' ${CMAKE_BINARY_DIR}/tmp_file/${chip_name}/Link.ld
-            COMMAND sed -i '27c 	RAM (xrw) : ORIGIN = 0x20000000, LENGTH = ${ram}K' ${CMAKE_BINARY_DIR}/tmp_file/${chip_name}/Link.ld
+            COMMAND sed -i '27c 	RAM (xrw) : ORIGIN = 0x20000000 + __stack_size, LENGTH = ${ram}K - __stack_size' ${CMAKE_BINARY_DIR}/tmp_file/${chip_name}/Link.ld
         )
     elseif(${chip_name} STREQUAL "ch592")
     # TODO

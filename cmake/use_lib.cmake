@@ -12,7 +12,8 @@ aux_source_directory(${LIB_FREERTOS_POSIX_PATH}/FreeRTOS-Plus-POSIX/source LIB_F
 target_sources(freertos INTERFACE
     ${LIB_FREERTOS_SRC}
     ${LIB_FREERTOS_PATH}/portable/MemMang/heap_4.c 
-    ${LIB_FREERTOS_PATH}/portable/GCC/RISC-V/port.c
+    #${LIB_FREERTOS_PATH}/portable/GCC/RISC-V/port.c
+    ${WCH_SDK_PATH}/configure/ch32v307/port.c
     ${LIB_FREERTOS_PATH}/portable/GCC/RISC-V/portASM.S
 )
 

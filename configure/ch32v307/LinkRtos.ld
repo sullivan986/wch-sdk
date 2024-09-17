@@ -25,6 +25,7 @@ MEMORY
 */
 	FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 256K
 	RAM (xrw) : ORIGIN = 0x20000000, LENGTH = 64K
+	STACK (rw) : ORIGIN = 0x20000000, LENGTH = __stack_size
 }
 
 
@@ -168,7 +169,7 @@ SECTIONS
 	PROVIDE( _end = _ebss);
 	PROVIDE( end = . );
 
-    .stack ORIGIN(RAM) + LENGTH(RAM) - __stack_size :
+    .stack :
     {
         PROVIDE( _heap_end = . );    
         . = ALIGN(4);
@@ -176,7 +177,7 @@ SECTIONS
         . = . + __stack_size;
         PROVIDE( _eusrstack = .);
         __freertos_irq_stack_top = .;
-    } >RAM 
+    } >STACK 
 
 }
 

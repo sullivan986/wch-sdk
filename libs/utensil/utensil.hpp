@@ -99,6 +99,9 @@ void ch_init()
 
 extern "C"
 {
+#include <errno.h>
+#include <sys/stat.h>
+#include <unistd.h>
     __attribute__((weak)) int _isatty(int fd)
     {
         if (fd >= STDIN_FILENO && fd <= STDERR_FILENO)
@@ -137,6 +140,12 @@ extern "C"
 
         errno = EBADF;
         return 0;
+    }
+
+    __attribute__((weak)) int _read(int file, char *ptr, int len)
+    {
+
+        return len;
     }
 }
 
